@@ -6,6 +6,7 @@ import { useStore } from "../store.tsx";
 import { ACTIVITY, goalPlan, weekPlan } from "../lib/budget.ts";
 import { addDays, DAY_NAMES, todayISO } from "../lib/dates.ts";
 import { fmt } from "../lib/nutrition.ts";
+import { requestPersistence } from "../lib/localdb.ts";
 import { buildFoods, FIELD_LABELS, guessMapping, readCsv, type CsvData, type Field, type Mapping } from "../lib/loseit.ts";
 
 function defaults(): Profile {
@@ -33,8 +34,10 @@ export default function Settings() {
         <div className="alert info">ברוכים הבאים! מלאו את הפרופיל והיעד כדי לחשב את התקציב היומי שלכם.</div>
       )}
       <ProfileForm />
+      <ApiKeyCard />
       <ImportCard />
       <LibraryCard />
+      <BackupCard />
     </main>
   );
 }
@@ -363,6 +366,103 @@ function LibraryCard() {
           </div>
         </>
       )}
+    </section>
+  );
+}
+
+function ApiKeyCard() {
+  const { state, refresh } = useStore();
+  const [key, setKey] = useState("");
+  const [show, setShow] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    void api.apiKey().then(setKey);
+  }, []);
+
+  async function save() {
+    await api.setApiKey(key);
+    await refresh();
+    setSaved(true);
+  }
+
+  return (
+    <section className="card">
+      <div className="card-head">
+        <h2>מפתח Claude API</h2>
+        <span className="sub small">{state!.aiEnabled ? "מוגדר ✓" : "לא מוגדר"}</span>
+      </div>
+      <div className="sub small" style={{ marginBottom: 10 }}>
+        נדרש לניתוח הרישום החופשי. המפתח נשמר רק בדפדפן הזה ונשלח רק ל-Anthropic. אפשר ליצור מפתח ב-console.anthropic.com, ומומלץ להגדיר לו מגבלת הוצאה חודשית.
+      </div>
+      <div className="row" style={{ flexWrap: "nowrap" }}>
+        <input
+          type={show ? "text" : "password"}
+          dir="ltr"
+          autoComplete="off"
+          spellCheck={false}
+          placeholder="sk-ant-..."
+          value={key}
+          onChange={(e) => {
+            setKey(e.target.value);
+            setSaved(false);
+          }}
+        />
+        <button className="btn ghost" onClick={() => setShow(!show)}>{show ? "הסתרה" : "הצגה"}</button>
+        <button className="btn primary" onClick={save}>שמירה</button>
+      </div>
+      {saved && <div className="sub small" style={{ marginTop: 8 }}>נשמר ✓</div>}
+    </section>
+  );
+}
+
+function BackupCard() {
+  const { refresh } = useStore();
+  const [msg, setMsg] = useState<{ kind: "info" | "error"; text: string } | null>(null);
+  const [persisted, setPersisted] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    void requestPersistence().then(setPersisted);
+  }, []);
+
+  async function download() {
+    const blob = new Blob([await api.exportBackup()], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `munch-backup-${todayISO()}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  async function restore(file: File) {
+    if (!confirm("שחזור מגיבוי יחליף את כל הנתונים במכשיר הזה. להמשיך?")) return;
+    try {
+      await api.importBackup(await file.text());
+      await refresh();
+      window.dispatchEvent(new Event("foods-changed"));
+      setMsg({ kind: "info", text: "הנתונים שוחזרו." });
+    } catch (e) {
+      setMsg({ kind: "error", text: e instanceof SyntaxError ? "הקובץ לא תקין." : (e as Error).message });
+    }
+  }
+
+  return (
+    <section className="card">
+      <div className="card-head">
+        <h2>גיבוי</h2>
+      </div>
+      <div className="sub small" style={{ marginBottom: 12 }}>
+        כל הנתונים נשמרים רק בדפדפן הזה. כדאי להוריד גיבוי מדי פעם — הוא מאפשר גם להעביר את הנתונים למכשיר אחר.
+        {persisted === false && " הדפדפן לא אישר אחסון קבוע, ולכן חשוב במיוחד לגבות."}
+      </div>
+      <div className="row">
+        <button className="btn" onClick={download}>הורדת גיבוי</button>
+        <label className="btn">
+          שחזור מגיבוי
+          <input type="file" accept=".json,application/json" hidden onChange={(e) => e.target.files?.[0] && restore(e.target.files[0])} />
+        </label>
+      </div>
+      {msg && <div className={`alert ${msg.kind}`} style={{ marginTop: 12 }}>{msg.text}</div>}
     </section>
   );
 }

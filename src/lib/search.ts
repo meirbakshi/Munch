@@ -1,4 +1,4 @@
-import type { Food } from "../shared/types.ts";
+import type { Food } from "../../shared/types.ts";
 
 /** Normalise Hebrew/English text for fuzzy matching. */
 export function normalize(s: string): string {

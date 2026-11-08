@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import type { Food, ParseResult } from "../shared/types.ts";
+import type { Food, ParseResult } from "../../shared/types.ts";
 import { searchFoods } from "./search.ts";
 
 const MODEL = "claude-opus-5-5";
@@ -97,14 +97,14 @@ const tools: Anthropic.Beta.BetaToolUnion[] = [
   { type: "web_search_20260209", name: "web_search", max_uses: 8 },
 ];
 
-let client: Anthropic | null = null;
-function getClient(): Anthropic {
-  client ??= new Anthropic();
-  return client;
-}
-
-export function aiEnabled(): boolean {
-  return Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
+let client: { key: string; c: Anthropic } | null = null;
+function getClient(apiKey: string): Anthropic {
+  if (client?.key !== apiKey) {
+    // The app has no backend: requests go straight from the browser to the Claude API,
+    // using the key the user saved on their own device.
+    client = { key: apiKey, c: new Anthropic({ apiKey, dangerouslyAllowBrowser: true }) };
+  }
+  return client.c;
 }
 
 export class ParseError extends Error {}
@@ -123,11 +123,11 @@ function lookup(foods: Food[], query: string): string {
   );
 }
 
-export async function parseFoodText(text: string, foods: Food[]): Promise<ParseResult> {
+async function run(text: string, foods: Food[], apiKey: string): Promise<ParseResult> {
   const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: "user", content: text }];
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
-    const response = await getClient().beta.messages.create({
+    const response = await getClient(apiKey).beta.messages.create({
       model: MODEL,
       max_tokens: 16000,
       output_config: { effort: "medium" },
@@ -173,4 +173,18 @@ export async function parseFoodText(text: string, foods: Food[]): Promise<ParseR
     messages.push({ role: "user", content: results });
   }
   throw new ParseError("הניתוח לקח יותר מדי צעדים. נסו לפצל את הרישום.");
+}
+
+export async function parseFoodText(text: string, foods: Food[], apiKey: string): Promise<ParseResult> {
+  try {
+    return await run(text, foods, apiKey);
+  } catch (err) {
+    if (err instanceof ParseError) throw err;
+    if (err instanceof Anthropic.AuthenticationError) throw new ParseError("מפתח ה-API שגוי. בדקו אותו בהגדרות.");
+    if (err instanceof Anthropic.PermissionDeniedError) throw new ParseError("למפתח ה-API אין הרשאה לבקשה הזו.");
+    if (err instanceof Anthropic.RateLimitError) throw new ParseError("יותר מדי בקשות, נסו שוב בעוד רגע.");
+    if (err instanceof Anthropic.APIConnectionError) throw new ParseError("אין חיבור לשירות הניתוח. בדקו את החיבור לאינטרנט.");
+    if (err instanceof Anthropic.APIError) throw new ParseError(`שגיאה בשירות הניתוח (${err.status}).`);
+    throw err;
+  }
 }

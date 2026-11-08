@@ -12,7 +12,7 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "allowImportingTsExtensions": true,
-    "types": ["node", "vite/client"]
+    "types": ["vite/client"]
   },
-  "include": ["src", "server", "shared", "vite.config.ts"]
+  "include": ["src", "shared", "vite.config.ts"]
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import type { Entry, Meal, NewEntry, Nutrients, Profile } from "../../shared/types.ts";
 import { api } from "../api.ts";
 import { useStore } from "../store.tsx";
@@ -87,7 +87,7 @@ function Ring({ value, max }: { value: number; max: number }) {
         stroke={over ? "var(--danger)" : "var(--accent)"}
         strokeWidth="12" strokeLinecap="round"
         strokeDasharray={`${Math.min(frac, 1) * c} ${c}`}
-        transform="rotate(-90 95 95) translate(190 0) scale(-1 1)"
+        transform="translate(190 0) scale(-1 1) rotate(-90 95 95)"
         style={{ transition: "stroke-dasharray 0.4s ease" }}
       />
     </svg>
@@ -251,7 +251,7 @@ function LogComposer({ date, aiEnabled, onAdded }: { date: string; aiEnabled: bo
         <h2>מה אכלת?</h2>
         <span className="sub small">כתבו בחופשיות — נזהה את המזונות והכמויות</span>
       </div>
-      {!aiEnabled && <div className="alert warn" style={{ marginBottom: 10 }}>ניתוח טקסט חופשי דורש מפתח ANTHROPIC_API_KEY בשרת. בינתיים אפשר להוסיף פריטים ידנית.</div>}
+      {!aiEnabled && <div className="alert warn" style={{ marginBottom: 10 }}>כדי לנתח טקסט חופשי, הזינו מפתח Claude API ב<Link to="/settings">הגדרות</Link>. בינתיים אפשר להוסיף פריטים ידנית.</div>}
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}

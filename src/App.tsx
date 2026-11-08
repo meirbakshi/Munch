@@ -11,7 +11,7 @@ function Shell() {
       <header className="topbar">
         <div className="topbar-inner">
           <Link to="/" className="brand">
-            <img src="/favicon.svg" width={30} height={30} alt="" />
+            <img src={`${import.meta.env.BASE_URL}favicon.svg`} width={30} height={30} alt="" />
             <span className="brand-name">מאנץ׳</span>
           </Link>
           <nav className="nav">
@@ -22,7 +22,7 @@ function Shell() {
         </div>
       </header>
       {error ? (
-        <main><div className="alert error">לא ניתן להתחבר לשרת: {error}</div></main>
+        <main><div className="alert error">לא ניתן לטעון את הנתונים: {error}</div></main>
       ) : !state ? (
         <main><div className="empty"><span className="spinner" style={{ display: "inline-block" }} /></div></main>
       ) : (

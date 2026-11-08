@@ -2,6 +2,8 @@
 
 A personal calorie tracker, in Hebrew. You log food in free text, and Claude turns it into a list of foods with amounts and nutrition values.
 
+It's a static web app hosted on GitHub Pages. There is no server: your data is stored in your browser (IndexedDB), and food parsing calls the Claude API directly from the browser with your own API key.
+
 ## Pages
 
 - **יומן (Daily log)**: opens on today. You can move back to earlier dates but not forward past today. It shows:
@@ -33,9 +35,9 @@ A personal calorie tracker, in Hebrew. You log food in free text, and Claude tur
 
 ## How free-text logging works
 
-`POST /api/parse` sends the text to Claude (`claude-opus-5-5`) with three tools:
+The app sends your text to Claude (`claude-opus-5-5`) with three tools:
 
-- `search_my_foods`: searches your imported Lose It foods and recipes with Hebrew-aware fuzzy matching.
+- `search_my_foods`: searches your imported Lose It foods and recipes with Hebrew-aware fuzzy matching. This runs in the browser.
 - `web_search`: looks up nutrition values online, preferring Israeli sources for Israeli products.
 - `submit_food_log`: returns the final list in a strict schema.
 
@@ -47,21 +49,25 @@ Settings → ייבוא מ-Lose It → pick the type (custom foods or recipes) �
 
 The app guesses which column is which from the headers, and you can change any of them before importing. A preview shows the result. If a recipe CSV has one row per ingredient, choose the "recipe name" column: the ingredients are added up and divided by the servings column. Re-importing replaces the previous import of the same type.
 
-## Running
+## Your data and API key
+
+- Everything is saved in the browser you use the app in. It doesn't sync between devices.
+- Settings → גיבוי downloads a backup file and restores from one. Use it regularly, and to move your data to another device.
+- The Claude API key is entered in Settings and stored only in that browser. It's never in the repository and never in backups. Set a monthly spending limit on the key in the Claude Console.
+
+## Deploying (GitHub Pages)
+
+`.github/workflows/deploy.yml` builds the app and publishes it on every push to `main`. One-time setup:
+
+1. The repository must be public, or your GitHub plan must allow Pages for private repositories (GitHub Pro or higher).
+2. Repository Settings → Pages → Build and deployment → Source: **GitHub Actions**.
+3. Push or merge to `main`. The app is then at `https://<user>.github.io/<repo>/`.
+
+On a phone, open that URL and use "Add to Home Screen". It then opens full-screen like an app.
+
+## Local development
 
 ```bash
 npm install
-cp .env.example .env    # set ANTHROPIC_API_KEY (and optionally APP_PASSWORD)
-npm run dev             # http://localhost:5173 (API on :3001)
+npm run dev
 ```
-
-Production:
-
-```bash
-npm run build
-npm start               # serves the app and API on $PORT (default 3001)
-```
-
-Data is stored in a single JSON file, `data/db.json` by default (`DATA_FILE` changes it). Back it up or mount it on a persistent volume when you deploy. If you set `APP_PASSWORD`, the whole app is behind HTTP basic auth (any username).
-
-Without an API key, the app still works. Free-text parsing is turned off, and you can add items by hand.

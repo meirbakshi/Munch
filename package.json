@@ -4,30 +4,26 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k -n server,web \"tsx watch server/index.ts\" \"vite\"",
+    "dev": "vite --host",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
-    "start": "NODE_ENV=production tsx server/index.ts",
+    "preview": "vite preview --host",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.6.0",
-    "express": "^5.3.0",
     "papaparse": "^5.7.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-router-dom": "^7.18.5",
     "recharts": "^3.10.1",
-    "tsx": "^4.23.15",
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@types/express": "^5.0.6",
     "@types/node": "^26.6.6",
     "@types/papaparse": "^5.5.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.2.1",
-    "concurrently": "^10.0.7",
     "typescript": "^7.0.2",
     "vite": "^8.3.6"
   }
