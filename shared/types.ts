@@ -83,4 +83,8 @@ export interface AppState {
   weights: WeightLog[];
   foodsCount: number;
   aiEnabled: boolean;
+  /** How food text is parsed: through claude.ai, with the user's API key, or not at all. */
+  ai: "claude" | "apikey" | null;
+  /** Where data is stored: the claude.ai artifact database, or this browser. */
+  storage: "cloud" | "local";
 }

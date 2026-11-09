@@ -28,7 +28,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     color-scheme: dark;
     --bg: #161716;
     --surface: #1f201f;
@@ -51,6 +51,31 @@
     --fiber: #c98500;
     --shadow: none;
   }
+}
+
+/* A host (claude.ai) may set the theme explicitly. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #161716;
+  --surface: #1f201f;
+  --surface-2: #272927;
+  --border: #343633;
+  --text: #f0efec;
+  --text-2: #c3c2b7;
+  --muted: #8f8d85;
+  --accent: #7fb8a5;
+  --accent-soft: #24332e;
+  --accent-text: #121312;
+  --danger: #e66767;
+  --danger-soft: #3a2422;
+  --warn: #e0b04a;
+  --warn-soft: #352d1a;
+  --ring-track: #2d2f2c;
+  --carbs: #3987e5;
+  --protein: #d95926;
+  --fat: #199e70;
+  --fiber: #c98500;
+  --shadow: none;
 }
 
 * { box-sizing: border-box; }

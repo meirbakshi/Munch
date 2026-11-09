@@ -68,7 +68,7 @@ export default function Daily() {
 
       <SummaryCard totals={totals} target={planDay.target} planned={planDay.planned} plan={plan} date={date} profile={profile} />
       <MacroCards totals={totals} />
-      <LogComposer date={date} aiEnabled={state!.aiEnabled} onAdded={load} />
+      <LogComposer date={date} aiEnabled={state!.aiEnabled} viaClaude={state!.ai === "claude"} onAdded={load} />
       <EntryList entries={dayEntries} loading={loading} onChanged={load} />
     </main>
   );
@@ -180,7 +180,7 @@ const EXAMPLES = [
   "יוגורט דנונה פרו 0% (115 קלוריות)",
 ];
 
-function LogComposer({ date, aiEnabled, onAdded }: { date: string; aiEnabled: boolean; onAdded: () => Promise<void> }) {
+function LogComposer({ date, aiEnabled, viaClaude, onAdded }: { date: string; aiEnabled: boolean; viaClaude: boolean; onAdded: () => Promise<void> }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -273,7 +273,7 @@ function LogComposer({ date, aiEnabled, onAdded }: { date: string; aiEnabled: bo
           {busy && !items ? <><span className="spinner" /> מנתח…</> : "נתח"}
         </button>
       </div>
-      {busy && !items && <div className="sub small" style={{ marginTop: 8 }}>מחפש ערכים תזונתיים ברשימה שלך וברשת — זה עשוי לקחת כמה שניות.</div>}
+      {busy && !items && <div className="sub small" style={{ marginTop: 8 }}>{viaClaude ? "מחפש ערכים תזונתיים ברשימה שלך — זה עשוי לקחת עד דקה." : "מחפש ערכים תזונתיים ברשימה שלך וברשת — זה עשוי לקחת כמה שניות."}</div>}
       {error && <div className="alert error" style={{ marginTop: 10 }}>{error}</div>}
 
       {items && items.length > 0 && (

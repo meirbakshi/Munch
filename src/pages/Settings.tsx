@@ -371,6 +371,24 @@ function LibraryCard() {
 }
 
 function ApiKeyCard() {
+  const { state } = useStore();
+  if (state!.ai === "claude") {
+    return (
+      <section className="card">
+        <div className="card-head">
+          <h2>ניתוח עם Claude</h2>
+          <span className="sub small">פעיל ✓</span>
+        </div>
+        <div className="sub small">
+          הניתוח רץ דרך חשבון Claude שלך, בלי מפתח API. בפעם הראשונה הדף יבקש אישור. Claude מחפש ברשימת המזונות שלך, ולשאר המזונות משתמש בערכים תזונתיים מוכרים (בלי חיפוש ברשת), אז כדאי לבדוק מוצרים ממותגים.
+        </div>
+      </section>
+    );
+  }
+  return <ApiKeyForm />;
+}
+
+function ApiKeyForm() {
   const { state, refresh } = useStore();
   const [key, setKey] = useState("");
   const [show, setShow] = useState(false);
@@ -417,25 +435,26 @@ function ApiKeyCard() {
 }
 
 function BackupCard() {
-  const { refresh } = useStore();
+  const { state, refresh } = useStore();
+  const cloud = state!.storage === "cloud";
   const [msg, setMsg] = useState<{ kind: "info" | "error"; text: string } | null>(null);
   const [persisted, setPersisted] = useState<boolean | null>(null);
 
   useEffect(() => {
-    void requestPersistence().then(setPersisted);
-  }, []);
+    if (!cloud) void requestPersistence().then(setPersisted);
+  }, [cloud]);
 
   async function download() {
-    const blob = new Blob([await api.exportBackup()], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `munch-backup-${todayISO()}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    try {
+      await api.downloadBackup(`munch-backup-${todayISO()}.json`);
+    } catch (e) {
+      const code = (e as { code?: string })?.code;
+      if (code !== "declined" && code !== "cancelled") setMsg({ kind: "error", text: "ההורדה לא הצליחה." });
+    }
   }
 
   async function restore(file: File) {
-    if (!confirm("שחזור מגיבוי יחליף את כל הנתונים במכשיר הזה. להמשיך?")) return;
+    if (!confirm(cloud ? "שחזור מגיבוי יחליף את כל הנתונים שלך. להמשיך?" : "שחזור מגיבוי יחליף את כל הנתונים במכשיר הזה. להמשיך?")) return;
     try {
       await api.importBackup(await file.text());
       await refresh();
@@ -452,8 +471,14 @@ function BackupCard() {
         <h2>גיבוי</h2>
       </div>
       <div className="sub small" style={{ marginBottom: 12 }}>
-        כל הנתונים נשמרים רק בדפדפן הזה. כדאי להוריד גיבוי מדי פעם — הוא מאפשר גם להעביר את הנתונים למכשיר אחר.
-        {persisted === false && " הדפדפן לא אישר אחסון קבוע, ולכן חשוב במיוחד לגבות."}
+        {cloud ? (
+          <>הנתונים נשמרים בחשבון claude.ai שלך, באזור פרטי שרק את/ה רואה, וזמינים מכל מכשיר. כדי להעביר נתונים מגרסת GitHub Pages: הורידו שם גיבוי ושחזרו אותו כאן.</>
+        ) : (
+          <>
+            כל הנתונים נשמרים רק בדפדפן הזה. כדאי להוריד גיבוי מדי פעם — הוא מאפשר גם להעביר את הנתונים למכשיר אחר.
+            {persisted === false && " הדפדפן לא אישר אחסון קבוע, ולכן חשוב במיוחד לגבות."}
+          </>
+        )}
       </div>
       <div className="row">
         <button className="btn" onClick={download}>הורדת גיבוי</button>

@@ -1,19 +1,23 @@
 import type { AppState, Entry, Food, NewEntry, ParseResult, Profile } from "../shared/types.ts";
-import { load, mutate, newId, replaceAll, type DB } from "./lib/localdb.ts";
-import { parseFoodText } from "./lib/parse.ts";
+import { load, mutate, newId, replaceAll, storageKind, type DB } from "./lib/localdb.ts";
+import { getDownloads, getSample } from "./lib/claude.ts";
+import { parseWithClaude } from "./lib/parseClaude.ts";
 
 const isDate = (s: unknown): s is string => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
 const foodKey = (f: Omit<Food, "id">) => `${f.source}|${f.name.trim()}|${f.brand ?? ""}`;
 
-/** Data access. Everything is stored on this device (IndexedDB); there is no server. */
+/** Data access. See localdb.ts for where data is stored. */
 export const api = {
   async state(): Promise<AppState> {
-    const db = await load();
+    const [db, storage, sample] = await Promise.all([load(), storageKind(), getSample()]);
+    const ai = sample ? "claude" : db.apiKey ? "apikey" : null;
     return {
       profile: db.profile,
       weights: [...db.weights].sort((a, b) => a.date.localeCompare(b.date)),
       foodsCount: db.foods.length,
-      aiEnabled: Boolean(db.apiKey),
+      aiEnabled: ai !== null,
+      ai,
+      storage,
     };
   },
 
@@ -69,7 +73,11 @@ export const api = {
   async parse(text: string): Promise<ParseResult> {
     const db = await load();
     if (!text.trim()) throw new Error("נא לכתוב מה אכלת");
+    const sample = await getSample();
+    if (sample) return parseWithClaude(text.trim(), db.foods, sample);
     if (!db.apiKey) throw new Error("כדי לנתח טקסט חופשי צריך להזין מפתח Claude API בהגדרות.");
+    // Loaded only when needed, so the claude.ai build doesn't download the SDK.
+    const { parseFoodText } = await import("./lib/parse.ts");
     return parseFoodText(text.trim(), db.foods, db.apiKey);
   },
 
@@ -80,6 +88,21 @@ export const api = {
   async exportBackup(): Promise<string> {
     const { apiKey: _omit, ...rest } = await load();
     return JSON.stringify({ app: "munch", exportedAt: new Date().toISOString(), ...rest }, null, 1);
+  },
+
+  /** Offers the backup as a file: through claude.ai when available, else a normal download. */
+  async downloadBackup(filename: string): Promise<void> {
+    const data = await api.exportBackup();
+    const downloads = await getDownloads();
+    if (downloads) {
+      await downloads.save({ filename, data });
+      return;
+    }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([data], { type: "application/json" }));
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
   },
 
   async importBackup(json: string): Promise<void> {

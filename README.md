@@ -55,6 +55,16 @@ The app guesses which column is which from the headers, and you can change any o
 - Settings → גיבוי downloads a backup file and restores from one. Use it regularly, and to move your data to another device.
 - The Claude API key is entered in Settings and stored only in that browser. It's never in the repository and never in backups. Set a monthly spending limit on the key in the Claude Console.
 
+## Running as a claude.ai artifact
+
+`npm run build:artifact` builds `dist-artifact/`, which is published as a private claude.ai artifact. There:
+
+- Data is kept in the artifact's database, in your private area (`data/users/<your id>/`), so it's the same on every device. Nobody else can read it, including people you share the page with: each of them gets their own private area.
+- Free-text parsing runs on your own Claude account through the artifact `sample` capability, so no API key is needed. Claude searches your food library, but it can't browse the web, so other foods use standard reference values. Check branded products.
+- Backups are offered through the claude.ai download prompt. To move data from the GitHub Pages version, download a backup there and restore it in the artifact.
+
+When publishing, leave out the `parse-*.js` chunk: it holds the Anthropic SDK, which only the API-key path loads.
+
 ## Deploying (GitHub Pages)
 
 `.github/workflows/deploy.yml` builds the app and publishes it on every push to `main`. One-time setup:
