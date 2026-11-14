@@ -7,8 +7,7 @@
     "dev": "vite --host",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "preview": "vite preview --host",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "build:artifact": "tsc -p tsconfig.json --noEmit && vite build --mode artifact"
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.6.0",
