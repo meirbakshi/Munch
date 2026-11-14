@@ -110,25 +110,24 @@ export default function Daily({ date, setDate, aiReady }) {
         {needWeight && (
           <div className="alert info row-gap" style={{ justifyContent: "space-between" }}>
             <span><span className="title">הגיע הזמן להישקל</span>המשקל האחרון עודכן לפני {daysBetween(lw.date, today)} ימים.</span>
-            <button className="btn small filled" onClick={() => setWeighIn(true)}>עדכון משקל</button>
+            <button className="btn small tinted" onClick={() => setWeighIn(true)}>עדכון משקל</button>
           </div>
         )}
 
-        {day ? <Summary day={day} s={s} /> : <div className="alert info">התאריך הזה לפני תחילת המעקב, ולכן אין לו יעד. אפשר עדיין לרשום בו.</div>}
-
-        <div className="macros">
-          {MACROS.map(([k, l]) => (
-            <div className="macro" key={k}>
-              <div className="top">
+        <div className="group summary">
+          {day ? <Summary day={day} /> : <div className="sublabel">התאריך הזה לפני תחילת המעקב, ולכן אין לו יעד. אפשר עדיין לרשום בו.</div>}
+          <div className="macro-strip">
+            {MACROS.map(([k, l]) => (
+              <div className="macro-col" key={k}>
                 <span className="name"><span className="dot" style={{ background: `var(--${k})` }} />{l}</span>
+                <span className="g num">{fmt(totals[k], totals[k] >= 100 ? 0 : 1)}<small> ג׳</small></span>
+                <div className="bar" aria-hidden="true"><span style={{ width: `${Math.min(100, shares[k])}%`, background: `var(--${k})` }} /></div>
                 <span className="pct num">{fmt(shares[k])}%</span>
               </div>
-              <div className="g num">{fmt(totals[k], 1)}<small>ג׳</small></div>
-              <div className="bar" aria-hidden="true"><span style={{ width: `${Math.min(100, shares[k])}%`, background: `var(--${k})` }} /></div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-        <p className="footnote" style={{ marginTop: -2 }}>האחוזים הם החלק של כל רכיב מסך האנרגיה של היום.</p>
+        {day && <BalanceNote day={day} s={s} />}
       </div>
 
       <Composer date={date} entries={entries} exercises={exercises} weightKg={lw?.kg} foods={data.foods} portions={data.portions || []} aiReady={aiReady} onManual={() => setEditing({ isNew: true })} />
@@ -193,26 +192,30 @@ export default function Daily({ date, setDate, aiReady }) {
   );
 }
 
-function Summary({ day, s }) {
+function Summary({ day }) {
   const left = day.target - day.eaten;
-  const adj = Math.round(day.adjustment);
   return (
-    <div className="group summary">
-      <div className="ring-wrap">
-        <Ring eaten={day.eaten} target={day.target} />
-        <div className="kv">
-          <div className="row"><span className="k">נאכל</span><span className="v num">{fmt(day.food)}</span></div>
-          {day.burned > 0 && <div className="row"><span className="k">פעילות</span><span className="v num good" dir="ltr">−{fmt(day.burned)}</span></div>}
-          <div className="row"><span className="k">היעד להיום</span><span className="v num">{fmt(day.target)}</span></div>
-          <div className="row"><span className="k">{left >= 0 ? "נותר" : "מעל היעד"}</span><span className={`v num ${left < 0 ? "bad" : "good"}`}>{fmt(Math.abs(left))}</span></div>
-        </div>
-      </div>
-      <div className="balance-note">
-        תוכנית ליום {day.isHigh ? `מוגבר (+${s.highBoostPct}%)` : "רגיל"}: {fmt(day.plan)} קק״ל
-        {adj !== 0 && <> · איזון מ-7 הימים הקודמים: <b className="num" dir="ltr">{adj > 0 ? "+" : "−"}{fmt(Math.abs(adj))}</b></>}
-        {day.target <= s.minCalories + 0.5 && day.plan + day.adjustment < s.minCalories && <> · הוגבל למינימום היומי</>}
+    <div className="ring-wrap">
+      <Ring eaten={day.eaten} target={day.target} />
+      <div className="kv">
+        <div className="row"><span className="k">נאכל</span><span className="v num">{fmt(day.food)}</span></div>
+        {day.burned > 0 && <div className="row"><span className="k">פעילות</span><span className="v num good" dir="ltr">−{fmt(day.burned)}</span></div>}
+        <div className="row"><span className="k">היעד להיום</span><span className="v num">{fmt(day.target)}</span></div>
+        <div className="row"><span className="k">{left >= 0 ? "נותר" : "מעל היעד"}</span><span className={`v num ${left < 0 ? "bad" : "good"}`}>{fmt(Math.abs(left))}</span></div>
       </div>
     </div>
+  );
+}
+
+/** The quiet line under the summary that explains today's target. */
+function BalanceNote({ day, s }) {
+  const adj = Math.round(day.adjustment);
+  return (
+    <p className="footnote" style={{ marginTop: -2 }}>
+      יום {day.isHigh ? `מוגבר (+${s.highBoostPct}%)` : "רגיל"}: {fmt(day.plan)} קק״ל
+      {adj !== 0 && <> · איזון מ-7 הימים הקודמים <span className="num" dir="ltr">{adj > 0 ? "+" : "−"}{fmt(Math.abs(adj))}</span></>}
+      {day.plan + day.adjustment < s.minCalories && <> · הוגבל למינימום היומי</>}
+    </p>
   );
 }
 

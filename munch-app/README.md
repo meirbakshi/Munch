@@ -31,3 +31,7 @@ npm run build   # writes out/calorie-app.html
 
   The same prompt also handles exercise, portion-size definitions, and adjustments to a draft under review.
 - **Pages**: `src/pages/Daily.jsx`, `History.jsx`, `Settings.jsx`.
+
+## Backups
+
+`backups/before-design-pass.html` is the page as published before the Apple design pass (artifact version 5). To go back, publish that file to the same artifact URL. User data is not affected.

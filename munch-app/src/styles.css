@@ -5,10 +5,10 @@
   --cell: #ffffff;          /* secondarySystemGroupedBackground */
   --fill: rgba(118, 118, 128, 0.12);
   --fill-2: rgba(118, 118, 128, 0.2);
-  --sep: rgba(60, 60, 67, 0.18);
+  --sep: rgba(60, 60, 67, 0.29);
   --label: #000000;
-  --label-2: rgba(60, 60, 67, 0.62);
-  --label-3: rgba(60, 60, 67, 0.36);
+  --label-2: rgba(60, 60, 67, 0.6);
+  --label-3: rgba(60, 60, 67, 0.3);
   --tint: #248a3d;          /* app tint: a deep green for food */
   --tint-soft: rgba(36, 138, 61, 0.12);
   --on-tint: #ffffff;
@@ -24,7 +24,8 @@
   --ring-track: rgba(118, 118, 128, 0.14);
   --over: #d70015;
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Hebrew", "Heebo", "Segoe UI", Arial, sans-serif;
-  --font-display: -apple-system-headline, -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Hebrew", "Heebo", Arial, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Hebrew", "Heebo", Arial, sans-serif;
+  --font-rounded: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "SF Hebrew", "Heebo", Arial, sans-serif; /* hero numbers, as in Health & Fitness */
   --radius: 12px;
 }
 @media (prefers-color-scheme: dark) {
@@ -109,7 +110,7 @@ button { cursor: pointer; }
 .subtitle { color: var(--label-2); font-size: 15px; margin: 0 0 14px; }
 .section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 26px 16px 7px; }
 .section-title { font-size: 13px; color: var(--label-2); text-transform: none; letter-spacing: 0.01em; margin: 0; font-weight: 400; }
-.section-title.strong { font-size: 20px; line-height: 25px; color: var(--label); font-weight: 700; }
+.section-title.strong { font-size: 20px; line-height: 25px; color: var(--label); font-weight: 600; }
 .footnote { font-size: 13px; color: var(--label-2); margin: 7px 16px 0; line-height: 1.4; }
 
 /* ---------- inset grouped list ---------- */
@@ -146,7 +147,7 @@ button { cursor: pointer; }
 
 /* ---------- segmented control ---------- */
 .segmented { display: flex; background: var(--fill); border-radius: 9px; padding: 2px; gap: 2px; }
-.segmented button { flex: 1; border: 0; background: none; border-radius: 7px; min-height: 30px; font-size: 13px; font-weight: 500; color: var(--label); padding: 0 6px; }
+.segmented button { flex: 1; border: 0; background: none; border-radius: 7px; min-height: 30px; font-size: 13px; font-weight: 400; color: var(--label); padding: 0 6px; }
 .segmented button[aria-pressed="true"] { background: var(--cell); box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12), 0 3px 1px rgba(0, 0, 0, 0.04); font-weight: 600; }
 :root[data-theme="dark"] .segmented button[aria-pressed="true"] { background: #636366; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .segmented button[aria-pressed="true"] { background: #636366; } }
@@ -163,12 +164,12 @@ button { cursor: pointer; }
   padding: 6px max(16px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
 }
 .tabbar nav { max-width: 640px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, 1fr); }
-.tabbar a { display: grid; justify-items: center; gap: 2px; font-size: 10px; font-weight: 500; color: var(--label-2); text-decoration: none; padding: 2px 0; }
+.tabbar a { display: grid; justify-items: center; gap: 2px; font-size: 10px; font-weight: 400; color: var(--label-2); text-decoration: none; padding: 2px 0; }
 .tabbar a[aria-current="page"] { color: var(--tint); }
 
 /* ---------- date bar (daily) ---------- */
 .datebar { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
-.date-pick { position: relative; display: inline-flex; align-items: center; gap: 6px; color: var(--tint); font-size: 15px; font-weight: 500; background: var(--tint-soft); border-radius: 16px; padding: 6px 12px; }
+.date-pick { position: relative; display: inline-flex; align-items: center; gap: 6px; color: var(--tint); font-size: 15px; font-weight: 600; min-height: 34px; background: var(--tint-soft); border-radius: 16px; padding: 6px 12px; }
 .date-pick input { position: absolute; inset: 0; opacity: 0; width: 100%; }
 
 /* ---------- summary card ---------- */
@@ -177,7 +178,7 @@ button { cursor: pointer; }
 .ring { position: relative; width: 132px; height: 132px; }
 .ring svg { display: block; }
 .ring .center { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
-.ring .big { font-family: var(--font-display); font-size: 30px; font-weight: 700; line-height: 1; letter-spacing: -0.01em; }
+.ring .big { font-family: var(--font-rounded); font-size: 28px; font-weight: 700; line-height: 1; }
 .ring .cap { font-size: 12px; color: var(--label-2); margin-top: 4px; }
 .kv { display: grid; gap: 10px; }
 .kv .row { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
@@ -188,10 +189,10 @@ button { cursor: pointer; }
 .macros { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .macro { background: var(--cell); border-radius: var(--radius); padding: 12px 14px; display: grid; gap: 6px; }
 .macro .top { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
-.macro .name { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--label-2); font-weight: 500; }
+.macro .name { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--label-2); font-weight: 400; }
 .macro .dot { width: 8px; height: 8px; border-radius: 4px; flex: none; }
-.macro .g { font-size: 22px; font-weight: 700; font-family: var(--font-display); }
-.macro .g small { font-size: 13px; font-weight: 500; color: var(--label-2); margin-inline-start: 2px; }
+.macro .g { font-size: 22px; font-weight: 700; font-family: var(--font-rounded); }
+.macro .g small { font-size: 13px; font-weight: 400; color: var(--label-2); margin-inline-start: 2px; }
 .macro .pct { font-size: 15px; font-weight: 600; color: var(--label-2); }
 .bar { height: 6px; background: var(--ring-track); border-radius: 3px; overflow: hidden; }
 .bar > span { display: block; height: 100%; border-radius: 3px; }
@@ -249,16 +250,16 @@ button { cursor: pointer; }
 .toast {
   position: fixed; z-index: 50; left: 50%; transform: translateX(-50%);
   bottom: calc(92px + env(safe-area-inset-bottom, 0px)); max-width: min(560px, calc(100% - 32px));
-  background: var(--label); color: var(--bg); border-radius: 14px; padding: 10px 16px; font-size: 15px; font-weight: 500;
+  background: var(--label); color: var(--bg); border-radius: 14px; padding: 10px 16px; font-size: 15px; font-weight: 400;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); animation: fade 0.2s ease;
 }
 
 /* ---------- stats & charts ---------- */
 .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .tile { background: var(--cell); border-radius: var(--radius); padding: 12px 14px; display: grid; gap: 2px; align-content: start; }
-.tile .k { font-size: 13px; color: var(--label-2); font-weight: 500; }
-.tile .v { font-family: var(--font-display); font-size: 24px; font-weight: 700; line-height: 1.15; }
-.tile .v small { font-size: 14px; font-weight: 500; color: var(--label-2); margin-inline-start: 3px; }
+.tile .k { font-size: 13px; color: var(--label-2); font-weight: 400; }
+.tile .v { font-family: var(--font-rounded); font-size: 22px; font-weight: 700; line-height: 28px; }
+.tile .v small { font-size: 13px; font-weight: 400; color: var(--label-2); margin-inline-start: 3px; }
 .tile .d { font-size: 13px; color: var(--label-2); }
 .tile.wide { grid-column: 1 / -1; }
 .good { color: var(--tint); }
@@ -266,7 +267,7 @@ button { cursor: pointer; }
 
 .chart-card { background: var(--cell); border-radius: var(--radius); padding: 14px 12px 10px; display: grid; gap: 10px; }
 .chart-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 0 4px; }
-.chart-head .big { font-family: var(--font-display); font-size: 22px; font-weight: 700; }
+.chart-head .big { font-family: var(--font-rounded); font-size: 22px; font-weight: 700; }
 .chart-head .cap { font-size: 13px; color: var(--label-2); }
 .chart { position: relative; touch-action: pan-y; }
 .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
@@ -303,10 +304,20 @@ button { cursor: pointer; }
 .table-scroll { overflow-x: auto; }
 .table-scroll table { border-collapse: collapse; font-size: 13px; min-width: 100%; }
 .table-scroll th, .table-scroll td { padding: 6px 8px; text-align: start; border-bottom: 0.5px solid var(--sep); white-space: nowrap; }
-.table-scroll th { color: var(--label-2); font-weight: 500; }
+.table-scroll th { color: var(--label-2); font-weight: 400; }
 .search { display: flex; align-items: center; gap: 6px; background: var(--fill); border-radius: 10px; padding: 0 10px; min-height: 36px; color: var(--label-2); }
 .search input { border: 0; background: none; outline: none; flex: 1; min-width: 0; color: var(--label); }
 .stack { display: grid; gap: 10px; }
 .row-gap { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 
 .spread-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 0 4px; }
+
+/* summary: ring + macros in one group (Health style) */
+.macro-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding-top: 14px; border-top: 0.5px solid var(--sep); }
+.macro-col { display: grid; gap: 4px; align-content: start; min-width: 0; }
+.macro-col .name { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--label-2); white-space: nowrap; }
+.macro-col .dot { width: 7px; height: 7px; border-radius: 4px; flex: none; }
+.macro-col .g { font-family: var(--font-rounded); font-size: 17px; font-weight: 600; line-height: 22px; white-space: nowrap; }
+.macro-col .g small { font-size: 12px; font-weight: 400; color: var(--label-2); }
+.macro-col .pct { font-size: 12px; color: var(--label-2); }
+.macro-col .bar { height: 4px; border-radius: 2px; }

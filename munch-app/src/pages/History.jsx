@@ -78,7 +78,7 @@ export default function History({ openDay }) {
           <span className="d num">יעד {fmt(s.targetWeightKg, 1)} ק״ג</span>
         </div>
         <div className="tile wide">
-          <span className="k">כמה &quot;אמור&quot; הייתי לשקול</span>
+          <span className="k">כמה ״אמור״ הייתי לשקול</span>
           {expAtLast != null ? (
             <>
               <span className="v num">{fmt(expAtLast, 1)}<small>ק״ג לפי הרישומים · בפועל {fmt(lw.kg, 1)}</small></span>
