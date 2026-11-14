@@ -1,5 +1,7 @@
 # Munch (מאנץ׳)
 
+> **The current version is in [`munch-app/`](munch-app/).** It runs as a private claude.ai artifact, with data saved in claude.ai, free-text food and exercise logging, and 7-day balancing. The rest of this README describes the earlier GitHub Pages version, which is still in the repository root.
+
 A personal calorie tracker, in Hebrew. You log food in free text, and Claude turns it into a list of foods with amounts and nutrition values.
 
 It's a static web app hosted on GitHub Pages. There is no server: your data is stored in your browser (IndexedDB), and food parsing calls the Claude API directly from the browser with your own API key.
