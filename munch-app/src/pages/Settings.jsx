@@ -9,18 +9,18 @@ import { ConfirmSheet, Icon, Segmented, Sheet, toast } from "../ui.jsx";
 
 /* ---------- weight ---------- */
 
-export function WeightSheet({ onClose }) {
+export function WeightSheet({ onClose, existing = null }) {
   const { data } = useStore();
   const today = todayISO();
   const lw = latestWeight(data);
-  const [date, setDate] = useState(today);
-  const [kg, setKg] = useState(lw ? String(lw.kg) : "");
+  const [date, setDate] = useState(existing ? existing.date : today);
+  const [kg, setKg] = useState(existing ? String(existing.kg) : lw ? String(lw.kg) : "");
   const v = parseFloat(kg);
   const valid = v >= 30 && v <= 300 && date <= today;
   const save = async () => {
     try {
       await mutate((d) => {
-        d.weights = [...d.weights.filter((w) => w.date !== date), { date, kg: round1(v) }];
+        d.weights = [...d.weights.filter((w) => w.date !== date && w.date !== existing?.date), { date, kg: round1(v) }];
       });
       toast("המשקל עודכן");
       onClose();
@@ -29,13 +29,16 @@ export function WeightSheet({ onClose }) {
     }
   };
   return (
-    <Sheet title="עדכון משקל" onClose={onClose} end={<button className="link" style={{ fontWeight: 600 }} disabled={!valid} onClick={save}>שמירה</button>}>
+    <Sheet title={existing ? "שקילה" : "עדכון משקל"} onClose={onClose} end={<button className="link" style={{ fontWeight: 600 }} disabled={!valid} onClick={save}>שמירה</button>}>
       <div className="stack">
         <div className="field-grid">
           <div className="field"><label htmlFor="w-kg">משקל (ק״ג)</label><input id="w-kg" type="number" inputMode="decimal" step="0.1" value={kg} onChange={(e) => setKg(e.target.value)} autoFocus /></div>
           <div className="field"><label htmlFor="w-date">תאריך</label><input id="w-date" type="date" max={today} value={date} onChange={(e) => setDate(e.target.value)} /></div>
         </div>
         <p className="footnote" style={{ margin: "0 4px" }}>מומלץ להישקל באותה שעה, למשל בבוקר לפני האוכל. היעד היומי מחושב מחדש לפי המשקל החדש.</p>
+        {existing && data.weights.length > 1 && (
+          <button className="btn block danger" onClick={() => mutate((d) => void (d.weights = d.weights.filter((w) => w.date !== existing.date))).then(() => { toast("השקילה נמחקה"); onClose(); }, (e) => toast(e.message))}>מחיקת השקילה</button>
+        )}
       </div>
     </Sheet>
   );
@@ -55,6 +58,7 @@ export default function Settings({ storageKind }) {
   const [saving, setSaving] = useState(false);
   const [weighIn, setWeighIn] = useState(false);
   const [allWeights, setAllWeights] = useState(false);
+  const [editWeight, setEditWeight] = useState(null);
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
 
   const minDefault = f.sex === "male" ? 1500 : 1200;
@@ -146,11 +150,11 @@ export default function Settings({ storageKind }) {
               <Icon.chev className="chev" />
             </button>
             {(allWeights ? weightsDesc : weightsDesc.slice(0, 3)).map((w) => (
-              <div key={w.date} className="cell">
+              <button key={w.date} className="cell tap" onClick={() => setEditWeight(w)}>
                 <span className="grow sublabel" style={{ fontSize: 15 }}>{fmtDate(w.date, true)}</span>
-                <span className="num">{fmt(w.kg, 1)}</span>
-                {data.weights.length > 1 && <button className="link red" style={{ fontSize: 15 }} onClick={() => mutate((d) => void (d.weights = d.weights.filter((x) => x.date !== w.date))).catch((e) => toast(e.message))}>מחיקה</button>}
-              </div>
+                <span className="value num">{fmt(w.kg, 1)}</span>
+                <Icon.chev className="chev" />
+              </button>
             ))}
             {weightsDesc.length > 3 && <button className="cell tap" style={{ color: "var(--tint)" }} onClick={() => setAllWeights(!allWeights)}>{allWeights ? "פחות" : `כל השקילות (${weightsDesc.length})`}</button>}
           </>
@@ -217,6 +221,7 @@ export default function Settings({ storageKind }) {
         </>
       )}
       {weighIn && <WeightSheet onClose={() => setWeighIn(false)} />}
+      {editWeight && <WeightSheet existing={editWeight} onClose={() => setEditWeight(null)} />}
     </>
   );
 }

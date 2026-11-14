@@ -208,6 +208,13 @@ function useTip(n, x, W) {
 }
 const xLabelsEvery = (n) => (n <= 7 ? 1 : n <= 14 ? 2 : n <= 31 ? 7 : n <= 92 ? 14 : Math.ceil(n / 6));
 
+/** A bar with a rounded top (up to 4 pt) and a flat base, as in Swift Charts. */
+function barPath(x, y, w, h) {
+  if (h <= 0) return "";
+  const r = Math.min(4, w / 2, h);
+  return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`;
+}
+
 /** Calories eaten per day (bars) against that day's target (a step line). */
 export function CaloriesChart({ days }) {
   const n = days.length;
@@ -240,7 +247,7 @@ export function CaloriesChart({ days }) {
           const over = d.logged && d.eaten > d.target;
           const h = Math.max(d.logged ? 2 : 0, g.padT + g.ih - y(d.eaten));
           return (
-            <rect key={d.date} x={g.x(i) - bw / 2} y={g.padT + g.ih - h} width={bw} height={h} rx={Math.min(4, bw / 2)}
+            <path key={d.date} d={barPath(g.x(i) - bw / 2, g.padT + g.ih - h, bw, h)}
               fill={over ? "var(--over)" : "var(--tint)"} opacity={tip.i == null || tip.i === i ? 1 : 0.45} />
           );
         })}
