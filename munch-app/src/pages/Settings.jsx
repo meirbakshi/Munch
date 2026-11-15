@@ -4,7 +4,7 @@ import { norm } from "../ai.js";
 import {
   ACTIVITY, DAY_SHORT, DAY_NAMES, KCAL_PER_KG, addDays, ageAt, currentSettings, fmt, fmtDate, latestWeight, planFor, round1, todayISO,
 } from "../calc.js";
-import { emptyData, mutate, newId, useStore } from "../store.js";
+import { emptyData, mutate, newId, stableJson, useStore } from "../store.js";
 import { ConfirmSheet, Icon, Segmented, Sheet, toast } from "../ui.jsx";
 import { getTheme, setTheme } from "../theme.js";
 
@@ -111,7 +111,7 @@ export default function Settings({ storageKind }) {
     }
   };
 
-  const dirty = onboarding || JSON.stringify({ ...s, from: undefined }) !== JSON.stringify({ ...parsed, from: undefined });
+  const dirty = onboarding || stableJson({ ...s, from: undefined }) !== stableJson({ ...parsed, from: undefined });
   const weightsDesc = [...data.weights].sort((a, b) => b.date.localeCompare(a.date));
   const weeksToGoal = plan && parsed.weeklyLossKg > 0 ? (kgNow - parsed.targetWeightKg) / parsed.weeklyLossKg : null;
 
@@ -406,7 +406,8 @@ function Backup({ storageKind }) {
   };
   const restore = () =>
     mutate((d) => {
-      const fresh = { ...emptyData(), settingsHistory: pending.settingsHistory || [], weights: pending.weights || [], entries: pending.entries || [], foods: pending.foods || [] };
+      const fresh = emptyData();
+      for (const k of Object.keys(fresh)) if (pending[k] !== undefined) fresh[k] = pending[k];
       Object.assign(d, fresh);
     }).then(() => toast("הנתונים שוחזרו"), (e) => toast(e.message));
   return (

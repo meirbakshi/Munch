@@ -122,7 +122,7 @@ const FIELDS = [
   ["fat", "שומן", "ג׳"],
   ["fiber", "סיבים", "ג׳"],
 ];
-export function EntryEditor({ item, title, onSave, onDelete, onClose }) {
+export function EntryEditor({ item, title, onSave, onDelete, deleteLabel = "מחיקה מהיומן", onClose }) {
   const [it, setIt] = useState(() => ({ ...item }));
   const base = useRef({ ...item });
   const set = (k, v) => setIt((x) => ({ ...x, [k]: v }));
@@ -166,7 +166,7 @@ export function EntryEditor({ item, title, onSave, onDelete, onClose }) {
           ))}
         </div>
         {it.sourceNote && <p className="footnote" style={{ margin: "0 4px" }}>מקור: {ENERGY_SOURCES[it.source] || ""} · {it.sourceNote}</p>}
-        {onDelete && <button className="btn block danger" onClick={onDelete}>מחיקה מהיומן</button>}
+        {onDelete && <button className="btn block danger" onClick={onDelete}>{deleteLabel}</button>}
       </div>
     </Sheet>
   );

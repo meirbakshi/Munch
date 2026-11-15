@@ -62,6 +62,14 @@ function fromDocs(list) {
   return d;
 }
 
+/** JSON with object keys sorted, so a document read back from the database (keys in its own order)
+ *  compares equal to the same content built by the app. Without it, every save rewrote everything. */
+export function stableJson(v) {
+  if (Array.isArray(v)) return "[" + v.map(stableJson).join(",") + "]";
+  if (v && typeof v === "object") return "{" + Object.keys(v).filter((k) => v[k] !== undefined).sort().map((k) => JSON.stringify(k) + ":" + stableJson(v[k])).join(",") + "}";
+  return JSON.stringify(v ?? null);
+}
+
 function cloudBackend(col) {
   const stored = new Map();
   return {
@@ -70,13 +78,13 @@ function cloudBackend(col) {
       const snap = await col.limit(1000).get();
       stored.clear();
       const list = snap.docs.map((s) => ({ id: s.id, data: s.data() }));
-      for (const { id, data } of list) if (data) stored.set(id, JSON.stringify(data));
+      for (const { id, data } of list) if (data) stored.set(id, stableJson(data));
       return fromDocs(list);
     },
     async write(d) {
       const docs = toDocs(d);
       for (const [id, data] of docs) {
-        const json = JSON.stringify(data);
+        const json = stableJson(data);
         if (stored.get(id) === json) continue;
         await col.doc(id).set(data);
         stored.set(id, json);

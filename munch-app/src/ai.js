@@ -264,7 +264,14 @@ ${text}
   onStep?.(draft ? "מעדכן את הרשימה…" : "קורא את מה שכתבת…");
   let raw;
   try {
-    raw = await sample.json(prompt, { tools, signal });
+    try {
+      raw = await sample.json(prompt, { tools, signal });
+    } catch (e) {
+      // a view that can't run page tools: try once more without them, from general knowledge
+      if (e?.code !== "tools_unavailable") throw e;
+      onStep?.("מנתח בלי חיפוש…");
+      raw = await sample.json(prompt + "\n\nNote: the search tools are unavailable right now. Use reference values, and say in notes that the user's list and the web weren't checked.", { signal });
+    }
   } catch (e) {
     if (e && e.code === "cancelled") throw Object.assign(new Error("בוטל"), { cancelled: true });
     if (e && e.code) throw new Error(ERRORS[e.code] || "שגיאה זמנית בניתוח. נסו שוב.");
