@@ -177,6 +177,15 @@ html:root[data-app-theme="dark"] {
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { background: var(--bg); }
+/* One-screen app shell: html and body fill the screen, the content scrolls in .scroller,
+   and the tab bar is the shell's last row, so it is always on screen. */
+html, body { height: 100%; }
+body { overflow: hidden; overscroll-behavior: none; }
+#root { height: 100%; }
+.shell { height: 100%; display: flex; flex-direction: column; }
+.scroller { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }
+/* paints the home-indicator strip under the tab bar in the bar's color */
+body::after { content: ""; position: fixed; inset: auto 0 0; height: env(safe-area-inset-bottom, 0px); background: var(--blur); z-index: 19; }
 body {
   margin: 0;
   color: var(--label);
@@ -197,7 +206,7 @@ button { cursor: pointer; }
   margin: 0 auto;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 8px calc(96px + env(safe-area-inset-bottom, 0px));
+  padding-block: 8px 24px;
 }
 
 /* ---------- titles ---------- */
@@ -252,10 +261,10 @@ button { cursor: pointer; }
 
 /* ---------- tab bar ---------- */
 .tabbar {
-  position: fixed; inset: auto 0 0 0; z-index: 20;
+  flex: none; position: relative; z-index: 20;
   background: var(--blur); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
   border-top: 0.5px solid var(--sep);
-  padding: 6px max(16px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  padding: 6px max(16px, env(safe-area-inset-right, 0px)) 6px max(16px, env(safe-area-inset-left, 0px));
 }
 .tabbar nav { max-width: 640px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, 1fr); }
 .tabbar a { display: grid; justify-items: center; gap: 2px; font-size: 10px; font-weight: 400; color: var(--label-2); text-decoration: none; padding: 2px 0; }
