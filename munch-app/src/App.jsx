@@ -6,6 +6,7 @@ import History from "./pages/History.jsx";
 import Settings from "./pages/Settings.jsx";
 import { init, useStore } from "./store.js";
 import { Icon, ToastHost } from "./ui.jsx";
+import { syncThemeFromData } from "./theme.js";
 
 // Hash routes. "settings" is reserved by claude.ai, so the settings page is "#prefs".
 const ROUTES = ["log", "progress", "prefs"];
@@ -30,6 +31,11 @@ export default function App() {
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
+
+  // once the data has loaded, apply the display choice saved with it
+  useEffect(() => {
+    if (store.status === "ready") syncThemeFromData();
+  }, [store.status]);
 
   if (store.status === "loading") return <div className="app"><div className="center-screen"><div><span className="spinner" style={{ display: "inline-block" }} /><div style={{ marginTop: 10 }}>טוען את הנתונים שלך…</div></div></div></div>;
   if (store.status === "error") return <div className="app"><div className="center-screen"><div className="alert error">{store.error}</div></div></div>;

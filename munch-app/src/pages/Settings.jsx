@@ -234,10 +234,11 @@ export default function Settings({ storageKind }) {
 /* ---------- display ---------- */
 
 function DisplaySection() {
-  const [theme, setT] = useState(getTheme);
+  const { data } = useStore();
+  const [theme, setT] = useState(() => data.prefs?.theme || getTheme());
   const choose = (t) => {
-    setTheme(t);
     setT(t);
+    setTheme(t).catch((e) => toast(e.message));
   };
   return (
     <>
@@ -245,7 +246,7 @@ function DisplaySection() {
       <div className="group" style={{ padding: 12 }}>
         <Segmented label="מצב תצוגה" options={[["system", "לפי המכשיר"], ["light", "בהיר"], ["dark", "כהה"]]} value={theme} onChange={choose} />
       </div>
-      <p className="footnote">״לפי המכשיר״ עובר לבד בין בהיר לכהה לפי הגדרות האייפון. הבחירה נשמרת במכשיר הזה.</p>
+      <p className="footnote">״לפי המכשיר״ עובר לבד בין בהיר לכהה לפי הגדרות האייפון. הבחירה נשמרת בחשבון שלך.</p>
     </>
   );
 }

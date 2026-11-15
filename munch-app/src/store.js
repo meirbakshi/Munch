@@ -11,14 +11,14 @@ import { getDb, getUser } from "./claude.js";
  * object goes to localStorage instead.
  */
 
-export const emptyData = () => ({ settingsHistory: [], weights: [], entries: [], exercises: [], foods: [], portions: [] });
+export const emptyData = () => ({ settingsHistory: [], weights: [], entries: [], exercises: [], foods: [], portions: [], prefs: {} });
 
 const FOOD_CHUNK = 120_000;
 const LOCAL_KEY = "calorie-app-data";
 
 function toDocs(d) {
   const docs = new Map();
-  docs.set("core", { v: 1, settingsHistory: d.settingsHistory, weights: d.weights, portions: d.portions || [] });
+  docs.set("core", { v: 1, settingsHistory: d.settingsHistory, weights: d.weights, portions: d.portions || [], prefs: d.prefs || {} });
   const months = new Map();
   const month = (k) => {
     if (!months.has(k)) months.set(k, { entries: [], exercises: [] });
@@ -51,6 +51,7 @@ function fromDocs(list) {
       d.settingsHistory = data.settingsHistory || [];
       d.weights = data.weights || [];
       d.portions = data.portions || [];
+      d.prefs = data.prefs || {};
     } else if (id.startsWith("e-")) {
       d.entries.push(...(data.entries || []));
       d.exercises.push(...(data.exercises || []));
