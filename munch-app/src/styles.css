@@ -1,5 +1,8 @@
 /* Layout: iOS grouped app — large titles, inset grouped lists, bottom tab bar; one column, max 640px. */
 :root {
+  --toast-bg: rgba(28, 28, 30, 0.92);
+  --seg-thumb: #ffffff;
+  --seg-thumb-label: #000000;
   --plate: #ffffff;
   --plate-edge: #f6f4ef;
   --plate-rim: #ddd8cd;
@@ -35,6 +38,9 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
+    --toast-bg: rgba(72, 72, 74, 0.96);
+    --seg-thumb: #636366;
+    --seg-thumb-label: #ffffff;
     --plate: #3a3a3c;
     --plate-edge: #2c2c2e;
     --plate-rim: #545458;
@@ -65,6 +71,9 @@
   }
 }
 :root[data-theme="dark"] {
+  --toast-bg: rgba(72, 72, 74, 0.96);
+  --seg-thumb: #636366;
+  --seg-thumb-label: #ffffff;
   --plate: #3a3a3c;
   --plate-edge: #2c2c2e;
   --plate-rim: #545458;
@@ -97,6 +106,9 @@
 /* The app's own display setting (Settings → תצוגה) wins over the device and claude.ai themes.
    html:root[...] is more specific than both :root:not([data-theme]) and :root[data-theme]. */
 html:root[data-app-theme="light"] {
+  --toast-bg: rgba(28, 28, 30, 0.92);
+  --seg-thumb: #ffffff;
+  --seg-thumb-label: #000000;
   --plate: #ffffff;
   --plate-edge: #f6f4ef;
   --plate-rim: #ddd8cd;
@@ -130,6 +142,9 @@ html:root[data-app-theme="light"] {
   --radius: 12px;
 }
 html:root[data-app-theme="dark"] {
+  --toast-bg: rgba(72, 72, 74, 0.96);
+  --seg-thumb: #636366;
+  --seg-thumb-label: #ffffff;
   --plate: #3a3a3c;
   --plate-edge: #2c2c2e;
   --plate-rim: #545458;
@@ -229,9 +244,7 @@ button { cursor: pointer; }
 /* ---------- segmented control ---------- */
 .segmented { display: flex; background: var(--fill); border-radius: 9px; padding: 2px; gap: 2px; }
 .segmented button { flex: 1; border: 0; background: none; border-radius: 7px; min-height: 30px; font-size: 13px; font-weight: 400; color: var(--label); padding: 0 6px; }
-.segmented button[aria-pressed="true"] { background: var(--cell); box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12), 0 3px 1px rgba(0, 0, 0, 0.04); font-weight: 600; }
-:root[data-theme="dark"] .segmented button[aria-pressed="true"] { background: #636366; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .segmented button[aria-pressed="true"] { background: #636366; } }
+.segmented button[aria-pressed="true"] { background: var(--seg-thumb); color: var(--seg-thumb-label); box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12), 0 3px 1px rgba(0, 0, 0, 0.04); font-weight: 600; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { border: 0; border-radius: 16px; min-height: 32px; padding: 0 13px; background: var(--fill); color: var(--label); font-size: 15px; }
@@ -331,7 +344,7 @@ button { cursor: pointer; }
 .toast {
   position: fixed; z-index: 50; left: 50%; transform: translateX(-50%);
   bottom: calc(92px + env(safe-area-inset-bottom, 0px)); max-width: min(560px, calc(100% - 32px));
-  background: var(--label); color: var(--bg); border-radius: 14px; padding: 10px 16px; font-size: 15px; font-weight: 400;
+  background: var(--toast-bg); color: #ffffff; border-radius: 14px; padding: 10px 16px; font-size: 15px; font-weight: 400;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); animation: fade 0.2s ease;
 }
 

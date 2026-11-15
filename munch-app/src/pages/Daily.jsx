@@ -16,13 +16,6 @@ const MACROS = [
   ["fiber", "סיבים"],
 ];
 
-const EXAMPLES = [
-  "בבוקר: 2 ביצים מקושקשות, פרוסת לחם מלא וסלט ירקות קטן",
-  "קפה הפוך עם חלב 1% ויוגורט דנונה פרו",
-  "הליכה מהירה 45 דקות",
-  "תמחק את הסלט, ותשנה את הביצים ל-3",
-];
-
 export default function Daily({ date, setDate, aiReady }) {
   const { data } = useStore();
   const today = todayISO();
@@ -361,11 +354,6 @@ function Composer({ date, entries, exercises, weightKg, foods, portions, aiReady
           disabled={busy}
           aria-label="מה אכלת או מה עשית"
         />
-        {!text && !busy && (
-          <div className="chips">
-            {EXAMPLES.map((ex) => <button key={ex} className="chip" onClick={() => setText(ex)} style={{ fontSize: 13 }}>{ex}</button>)}
-          </div>
-        )}
         {busy ? (
           <div className="actions">
             <div className="progress"><span className="spinner" />{step || "מנתח…"}</div>
