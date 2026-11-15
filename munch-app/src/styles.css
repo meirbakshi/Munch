@@ -94,6 +94,72 @@
   --over: #ff6961;
 }
 
+/* The app's own display setting (Settings → תצוגה) wins over the device and claude.ai themes.
+   html:root[...] is more specific than both :root:not([data-theme]) and :root[data-theme]. */
+html:root[data-app-theme="light"] {
+  --plate: #ffffff;
+  --plate-edge: #f6f4ef;
+  --plate-rim: #ddd8cd;
+  --plate-shadow: rgba(60, 50, 30, 0.10);
+  --glass: rgba(210, 228, 240, 0.35);
+  color-scheme: light;
+  --bg: #f2f2f7;            /* systemGroupedBackground */
+  --cell: #ffffff;          /* secondarySystemGroupedBackground */
+  --fill: rgba(118, 118, 128, 0.12);
+  --fill-2: rgba(118, 118, 128, 0.2);
+  --sep: rgba(60, 60, 67, 0.29);
+  --label: #000000;
+  --label-2: rgba(60, 60, 67, 0.6);
+  --label-3: rgba(60, 60, 67, 0.3);
+  --tint: #248a3d;          /* app tint: a deep green for food */
+  --tint-soft: rgba(36, 138, 61, 0.12);
+  --on-tint: #ffffff;
+  --red: #d70015;
+  --red-soft: rgba(215, 0, 21, 0.1);
+  --orange: #c93400;
+  --blur: rgba(249, 249, 249, 0.82);
+  --carbs: #2a78d6;
+  --protein: #eb6834;
+  --fat: #1baf7a;
+  --fiber: #eda100;
+  --ring-track: rgba(118, 118, 128, 0.14);
+  --over: #d70015;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Hebrew", "Heebo", "Segoe UI", Arial, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Hebrew", "Heebo", Arial, sans-serif;
+  --font-rounded: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "SF Hebrew", "Heebo", Arial, sans-serif; /* hero numbers, as in Health & Fitness */
+  --radius: 12px;
+}
+html:root[data-app-theme="dark"] {
+  --plate: #3a3a3c;
+  --plate-edge: #2c2c2e;
+  --plate-rim: #545458;
+  --plate-shadow: rgba(0, 0, 0, 0.45);
+  --glass: rgba(200, 220, 235, 0.12);
+  color-scheme: dark;
+  --bg: #000000;
+  --cell: #1c1c1e;
+  --fill: rgba(118, 118, 128, 0.24);
+  --fill-2: rgba(118, 118, 128, 0.32);
+  --sep: rgba(84, 84, 88, 0.6);
+  --label: #ffffff;
+  --label-2: rgba(235, 235, 245, 0.6);
+  --label-3: rgba(235, 235, 245, 0.3);
+  --tint: #30d158;
+  --tint-soft: rgba(48, 209, 88, 0.16);
+  --on-tint: #002a0c;
+  --red: #ff6961;
+  --red-soft: rgba(255, 105, 97, 0.16);
+  --orange: #ff9f0a;
+  --blur: rgba(22, 22, 24, 0.82);
+  --carbs: #3987e5;
+  --protein: #d95926;
+  --fat: #199e70;
+  --fiber: #c98500;
+  --ring-track: rgba(118, 118, 128, 0.26);
+  --over: #ff6961;
+}
+
+
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { background: var(--bg); }
 body {
