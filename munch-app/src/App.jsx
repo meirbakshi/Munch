@@ -10,6 +10,8 @@ import { syncThemeFromData } from "./theme.js";
 
 // Hash routes. "settings" is reserved by claude.ai, so the settings page is "#prefs".
 const ROUTES = ["log", "progress", "prefs"];
+// the page content scrolls inside this element, so the tab bar under it never moves
+const scroller = () => document.getElementById("scroller");
 const readRoute = () => {
   const h = location.hash.replace("#", "");
   return ROUTES.includes(h) ? h : "log";
@@ -26,7 +28,7 @@ export default function App() {
     getSample().then((s) => setAiReady(Boolean(s)));
     const onHash = () => {
       setRoute(readRoute());
-      window.scrollTo(0, 0);
+      scroller()?.scrollTo(0, 0);
     };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
@@ -37,24 +39,26 @@ export default function App() {
     if (store.status === "ready") syncThemeFromData();
   }, [store.status]);
 
-  if (store.status === "loading") return <div className="app"><div className="center-screen"><div><span className="spinner" style={{ display: "inline-block" }} /><div style={{ marginTop: 10 }}>טוען את הנתונים שלך…</div></div></div></div>;
-  if (store.status === "error") return <div className="app"><div className="center-screen"><div className="alert error">{store.error}</div></div></div>;
+  if (store.status === "loading") return <div className="shell"><div className="scroller"><div className="app"><div className="center-screen"><div><span className="spinner" style={{ display: "inline-block" }} /><div style={{ marginTop: 10 }}>טוען את הנתונים שלך…</div></div></div></div></div></div>;
+  if (store.status === "error") return <div className="shell"><div className="scroller"><div className="app"><div className="center-screen"><div className="alert error">{store.error}</div></div></div></div></div>;
 
   const onboarded = Boolean(currentSettings(store.data));
   const page = !onboarded ? "prefs" : route;
   const go = (r) => {
     if (location.hash !== "#" + r) location.hash = r;
-    else window.scrollTo({ top: 0, behavior: "smooth" });
+    else scroller()?.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
-    <>
+    <div className="shell">
+      <div className="scroller" id="scroller">
       <main className="app">
         {store.kind === "local" && <div className="alert warn" style={{ margin: "8px 0" }}>הנתונים נשמרים כרגע רק בדפדפן הזה. כדי לשמור אותם בחשבון ולסנכרן בין מכשירים, פתחו את האפליקציה ב-claude.ai כשאתם מחוברים.</div>}
         {page === "log" && <Daily date={date} setDate={setDate} aiReady={aiReady} />}
         {page === "progress" && <History openDay={(d) => { setDate(d); go("log"); }} />}
         {page === "prefs" && <Settings key={onboarded ? "s" : "o"} storageKind={store.kind} />}
       </main>
+      </div>
       {onboarded && (
         <div className="tabbar">
           <nav aria-label="ניווט">
@@ -65,6 +69,6 @@ export default function App() {
         </div>
       )}
       <ToastHost />
-    </>
+    </div>
   );
 }
