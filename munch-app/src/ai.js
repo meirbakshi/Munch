@@ -58,11 +58,6 @@ How to work:
    - "update" an existing library item (use its id from search_my_foods) when the user corrects its values or says its serving/recipe changed.
    - Do not add generic foods (an apple, an egg) and do not duplicate an item that already exists.
    Library items are per serving: servingAmount + servingUnit (e.g. 100 גרם, 1 יחידה), plus servingGrams when known.
-6b. "visual" (for a drawing of the meal, on every add/update item): 
-   - shape: one of mound (rice, pasta, couscous, hummus, mashed, salad dressing-heavy dishes), slice (bread, pita, toast, cake, sandwich), piece (meat, chicken, schnitzel, fish, tofu, patty), leaves (salad, greens, chopped vegetables), round (fruit, vegetables eaten whole, meatballs, falafel, cookies), egg, wedge (pizza, quiche, cheese slice, pie), scoop (yogurt, cottage, cream cheese, ice cream, dips, spreads), bowl (soup, stew, cereal with milk, shakshuka in a pan), pieces (nuts, seeds, chips, crackers, candy), bar (chocolate, protein/snack bar), glass (water, juice, soda, milk, beer, wine, shakes), mug (coffee, tea, hot chocolate).
-   - color: the food's main color, one of red, orange, yellow, green, darkgreen, brown, lightbrown, beige, white, cream, pink, purple, black, golden, clear (water, sparkling water, clear soda).
-   - place: "plate" (the meal's main foods), "side" (a snack, dessert, dip or extra eaten on its own or next to the meal: drawn in a small bowl), or "drink" (anything drunk).
-   - count: how many separate pieces to draw (1–6), e.g. 4 pizza slices → 4, 2 eggs → 2, a portion of rice → 1.
 6. Names, units, sourceNote and notes in Hebrew. sourceNote: short, where the numbers came from and any assumption (e.g. "לפי אתר תנובה: 95 קק״ל ל-100 גרם", "הנחתי מלפפון בינוני, 100 גרם"). notes: one short sentence on anything the user should check, or "".
 7a. Portion definitions: when the user tells you how big one of their portions is ("אצלי כוס זה 200 מ״ל", "מעכשיו פרוסה = 25 גרם", "הכוס שלי 200 מ״ל ולא 250"), add it to "portions" as {"term": the portion word in Hebrew, "value": its size in Hebrew, e.g. "200 מ״ל"} so it is saved and used from now on, AND apply it to this message's items. A definition that changes a saved one replaces it.
 7. meal: from the text (בוקר / צהריים / ערב / נשנוש), else the default meal given below.
@@ -73,7 +68,7 @@ How to work:
    - Changes to already-logged exercise use exerciseUpdate (ref x1, x2, ... with the full corrected item) and exerciseDelete (refs).
 
 Reply with ONLY one JSON object, no other text (empty arrays where nothing applies):
-{"add":[{"name":"","amount":0,"unit":"","grams":null,"meal":"breakfast","calories":0,"carbs":0,"protein":0,"fat":0,"fiber":0,"source":"reference","sourceNote":"","visual":{"shape":"mound","color":"white","place":"plate","count":1}}],
+{"add":[{"name":"","amount":0,"unit":"","grams":null,"meal":"breakfast","calories":0,"carbs":0,"protein":0,"fat":0,"fiber":0,"source":"reference","sourceNote":""}],
  "update":[{"ref":"e1","name":"","amount":0,"unit":"","grams":null,"meal":"lunch","calories":0,"carbs":0,"protein":0,"fat":0,"fiber":0,"source":"user","sourceNote":""}],
  "delete":["e2"],
  "library":[{"action":"add","id":null,"name":"","brand":"","servingAmount":100,"servingUnit":"גרם","servingGrams":100,"calories":0,"carbs":0,"protein":0,"fat":0,"fiber":0}],
@@ -92,19 +87,6 @@ const num = (v) => {
 };
 const str = (v) => (typeof v === "string" ? v.trim() : "");
 const SOURCES = ["user", "library", "web", "reference"];
-export const SHAPES = ["mound", "slice", "piece", "leaves", "round", "egg", "wedge", "scoop", "bowl", "pieces", "bar", "glass", "mug"];
-export const FOOD_COLORS = ["red", "orange", "yellow", "green", "darkgreen", "brown", "lightbrown", "beige", "white", "cream", "pink", "purple", "black", "golden", "clear"];
-const cleanVisual = (v) => {
-  if (!v || typeof v !== "object") return null;
-  const shape = SHAPES.includes(v.shape) ? v.shape : "mound";
-  const drink = shape === "glass" || shape === "mug";
-  return {
-    shape,
-    color: FOOD_COLORS.includes(v.color) ? v.color : "beige",
-    place: drink ? "drink" : ["plate", "side"].includes(v.place) ? v.place : "plate",
-    count: Math.max(1, Math.min(6, Math.round(Number(v.count) || 1))),
-  };
-};
 const cleanItem = (it, fallbackMeal) => ({
   name: str(it.name),
   amount: num(it.amount) || 1,
@@ -118,7 +100,6 @@ const cleanItem = (it, fallbackMeal) => ({
   fiber: round1(num(it.fiber)),
   source: SOURCES.includes(it.source) ? it.source : "reference",
   sourceNote: str(it.sourceNote),
-  visual: cleanVisual(it.visual),
 });
 
 /* ---------- the call ---------- */

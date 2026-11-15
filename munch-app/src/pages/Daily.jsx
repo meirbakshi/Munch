@@ -7,7 +7,6 @@ import {
 import { mutate, newId, useStore } from "../store.js";
 import { ConfirmSheet, EntryEditor, Icon, Ring, Sheet, toast } from "../ui.jsx";
 import { WeightSheet } from "./Settings.jsx";
-import { Plate } from "../plate.jsx";
 
 const MACROS = [
   ["carbs", "פחמימות"],
@@ -442,7 +441,6 @@ function ReviewSheet({ result, setResult, entries, exercises, onSave, onRevise, 
             <span className="sublabel num" dir="ltr">{draftKcal >= 0 ? "+" : "−"}{fmt(Math.abs(draftKcal))} קק״ל ליום</span>
           </div>
         )}
-        {!savedOnly && <Plate items={[...result.add, ...result.update]} />}
         <div className="group" style={{ opacity: revising ? 0.5 : 1, transition: "opacity .2s" }}>
           {result.add.map((it, i) => (
             <button key={"a" + i} className="cell tap" onClick={() => edit("add", i)}>
