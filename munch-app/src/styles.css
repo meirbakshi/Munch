@@ -273,7 +273,7 @@ button { cursor: pointer; }
 /* ---------- date bar (daily) ---------- */
 .datebar { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
 .date-pick { position: relative; display: inline-flex; align-items: center; gap: 6px; color: var(--tint); font-size: 15px; font-weight: 600; min-height: 34px; background: var(--tint-soft); border-radius: 16px; padding: 6px 12px; }
-.date-pick input { position: absolute; inset: 0; opacity: 0; width: 100%; }
+.date-pick input { position: absolute; inset: 0; opacity: 0; width: 100%; font-size: 16px; }
 
 /* ---------- summary card ---------- */
 .summary { padding: 18px 16px 16px; display: grid; gap: 16px; }

@@ -21,6 +21,20 @@ export default function App() {
   const store = useStore();
   const [route, setRoute] = useState(readRoute);
   const [date, setDate] = useState(todayISO);
+  // the app can stay open in the background past midnight: if it was showing "today", move to the new today
+  useEffect(() => {
+    let shownToday = todayISO();
+    const onVisible = () => {
+      if (document.hidden) return;
+      const now = todayISO();
+      if (now !== shownToday) {
+        setDate((d) => (d === shownToday ? now : d));
+        shownToday = now;
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
   const [aiReady, setAiReady] = useState(false);
 
   useEffect(() => {

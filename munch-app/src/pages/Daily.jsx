@@ -289,6 +289,7 @@ function Composer({ date, entries, exercises, weightKg, foods, portions, aiReady
       d.portions = d.portions || [];
       for (const p of list) {
         const i = d.portions.findIndex((x) => norm(x.term) === norm(p.term));
+        if (i >= 0 && norm(d.portions[i].value) === norm(p.value)) continue; // already saved as is
         const after = { term: p.term, value: p.value, updatedAt: new Date().toISOString() };
         if (i >= 0) {
           applied.push({ type: "portion", action: "update", before: d.portions[i], after });
@@ -350,7 +351,7 @@ function Composer({ date, entries, exercises, weightKg, foods, portions, aiReady
           id="log-text"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="כתבו בחופשיות מה אכלתם או איזו פעילות עשיתם, למשל: צהריים — חזה עוף 150 גרם ואורז, ואחר כך הליכה של 40 דקות. אפשר גם לבקש לתקן או למחוק פריט, או להגדיר גודל מנה (״אצלי כוס זה 200 מ״ל״)."
+          placeholder="למשל: חזה עוף 150 גרם ואורז, והליכה של 40 דקות"
           disabled={busy}
           aria-label="מה אכלת או מה עשית"
         />
@@ -570,6 +571,7 @@ function ReviewSheet({ result, setResult, entries, exercises, onSave, onRevise, 
       {editIdx && editIdx[0].startsWith("exercise") && (
         <ExerciseEditor
           title="עריכה לפני שמירה"
+          deleteLabel="הסרה מהרשימה"
           item={result[editIdx[0]][editIdx[1]]}
           onSave={(it) => {
             setResult((r) => ({ ...r, [editIdx[0]]: r[editIdx[0]].map((x, i) => (i === editIdx[1] ? it : x)) }));
@@ -585,6 +587,7 @@ function ReviewSheet({ result, setResult, entries, exercises, onSave, onRevise, 
       {editIdx && !editIdx[0].startsWith("exercise") && (
         <EntryEditor
           title="עריכה לפני שמירה"
+          deleteLabel="הסרה מהרשימה"
           item={result[editIdx[0]][editIdx[1]]}
           onSave={(it) => {
             setResult((r) => ({ ...r, [editIdx[0]]: r[editIdx[0]].map((x, i) => (i === editIdx[1] ? it : x)) }));
@@ -613,7 +616,7 @@ function ReviewSheet({ result, setResult, entries, exercises, onSave, onRevise, 
 
 /* ---------- exercise editor ---------- */
 
-function ExerciseEditor({ item, title, onSave, onDelete, onClose }) {
+function ExerciseEditor({ item, title, onSave, onDelete, deleteLabel = "מחיקה", onClose }) {
   const [x, setX] = useState(() => ({ ...item, minutes: item.minutes ?? "" }));
   const set = (k, v) => setX((o) => ({ ...o, [k]: v }));
   // changing the duration rescales an estimate
@@ -634,7 +637,7 @@ function ExerciseEditor({ item, title, onSave, onDelete, onClose }) {
         </div>
         {x.note && <p className="footnote" style={{ margin: "0 4px" }}>{x.note}</p>}
         <p className="footnote" style={{ margin: "0 4px" }}>הקלוריות האלה יורדות מסך מה שאכלת היום.</p>
-        {onDelete && <button className="btn block danger" onClick={onDelete}>מחיקה</button>}
+        {onDelete && <button className="btn block danger" onClick={onDelete}>{deleteLabel}</button>}
       </div>
     </Sheet>
   );
