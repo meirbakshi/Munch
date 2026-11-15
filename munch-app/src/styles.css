@@ -3,11 +3,6 @@
   --toast-bg: rgba(28, 28, 30, 0.92);
   --seg-thumb: #ffffff;
   --seg-thumb-label: #000000;
-  --plate: #ffffff;
-  --plate-edge: #f6f4ef;
-  --plate-rim: #ddd8cd;
-  --plate-shadow: rgba(60, 50, 30, 0.10);
-  --glass: rgba(210, 228, 240, 0.35);
   color-scheme: light;
   --bg: #f2f2f7;            /* systemGroupedBackground */
   --cell: #ffffff;          /* secondarySystemGroupedBackground */
@@ -41,11 +36,6 @@
     --toast-bg: rgba(72, 72, 74, 0.96);
     --seg-thumb: #636366;
     --seg-thumb-label: #ffffff;
-    --plate: #3a3a3c;
-    --plate-edge: #2c2c2e;
-    --plate-rim: #545458;
-    --plate-shadow: rgba(0, 0, 0, 0.45);
-    --glass: rgba(200, 220, 235, 0.12);
     color-scheme: dark;
     --bg: #000000;
     --cell: #1c1c1e;
@@ -74,11 +64,6 @@
   --toast-bg: rgba(72, 72, 74, 0.96);
   --seg-thumb: #636366;
   --seg-thumb-label: #ffffff;
-  --plate: #3a3a3c;
-  --plate-edge: #2c2c2e;
-  --plate-rim: #545458;
-  --plate-shadow: rgba(0, 0, 0, 0.45);
-  --glass: rgba(200, 220, 235, 0.12);
   color-scheme: dark;
   --bg: #000000;
   --cell: #1c1c1e;
@@ -109,11 +94,6 @@ html:root[data-app-theme="light"] {
   --toast-bg: rgba(28, 28, 30, 0.92);
   --seg-thumb: #ffffff;
   --seg-thumb-label: #000000;
-  --plate: #ffffff;
-  --plate-edge: #f6f4ef;
-  --plate-rim: #ddd8cd;
-  --plate-shadow: rgba(60, 50, 30, 0.10);
-  --glass: rgba(210, 228, 240, 0.35);
   color-scheme: light;
   --bg: #f2f2f7;            /* systemGroupedBackground */
   --cell: #ffffff;          /* secondarySystemGroupedBackground */
@@ -145,11 +125,6 @@ html:root[data-app-theme="dark"] {
   --toast-bg: rgba(72, 72, 74, 0.96);
   --seg-thumb: #636366;
   --seg-thumb-label: #ffffff;
-  --plate: #3a3a3c;
-  --plate-edge: #2c2c2e;
-  --plate-rim: #545458;
-  --plate-shadow: rgba(0, 0, 0, 0.45);
-  --glass: rgba(200, 220, 235, 0.12);
   color-scheme: dark;
   --bg: #000000;
   --cell: #1c1c1e;
@@ -401,9 +376,6 @@ button { cursor: pointer; }
   width: 100%; border: 0; border-radius: 10px; background: var(--cell); min-height: 44px; padding: 0 12px; outline: none;
 }
 .field input:focus, .field select:focus { box-shadow: 0 0 0 2px var(--tint); }
-.mapping { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 8px 10px; align-items: center; }
-.mapping label { font-size: 15px; }
-.mapping select { width: 100%; min-height: 36px; border-radius: 8px; border: 0; background: var(--fill); padding: 0 8px; }
 .table-scroll { overflow-x: auto; }
 .table-scroll table { border-collapse: collapse; font-size: 13px; min-width: 100%; }
 .table-scroll th, .table-scroll td { padding: 6px 8px; text-align: start; border-bottom: 0.5px solid var(--sep); white-space: nowrap; }
@@ -424,10 +396,3 @@ button { cursor: pointer; }
 .macro-col .g small { font-size: 12px; font-weight: 400; color: var(--label-2); }
 .macro-col .pct { font-size: 12px; color: var(--label-2); }
 .macro-col .bar { height: 4px; border-radius: 2px; }
-
-/* the meal drawing in the review sheet */
-.plate-art { display: grid; place-items: center; margin: -4px 0 2px; }
-.plate-art svg { width: 100%; max-width: 340px; height: auto; display: block; }
-.plate-art .food { transform-box: fill-box; transform-origin: center; animation: food-in 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
-@keyframes food-in { from { transform: scale(0.4); opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .plate-art .food { animation: none; } }
