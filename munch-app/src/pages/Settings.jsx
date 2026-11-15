@@ -6,6 +6,7 @@ import {
 } from "../calc.js";
 import { emptyData, mutate, newId, useStore } from "../store.js";
 import { ConfirmSheet, Icon, Segmented, Sheet, toast } from "../ui.jsx";
+import { getTheme, setTheme } from "../theme.js";
 
 /* ---------- weight ---------- */
 
@@ -120,6 +121,8 @@ export default function Settings({ storageKind }) {
       <h1 className="large-title">{onboarding ? "ברוכים הבאים למאנץ׳" : "הגדרות"}</h1>
       <p className="subtitle">{onboarding ? "כמה פרטים, ונחשב לכם יעד קלורי יומי." : "שינוי פרטים או יעד מעדכן את היעדים מהיום והלאה. ימים קודמים לא משתנים."}</p>
 
+      {!onboarding && <DisplaySection />}
+
       <div className="section-head"><h2 className="section-title">פרופיל</h2></div>
       <div className="group">
         <label className="cell"><span className="grow">שם</span><input id="s-name" className="inline" value={f.name} placeholder="לא חובה" onChange={(e) => set("name", e.target.value)} /></label>
@@ -227,6 +230,25 @@ export default function Settings({ storageKind }) {
 }
 
 /* ---------- food library ---------- */
+
+/* ---------- display ---------- */
+
+function DisplaySection() {
+  const [theme, setT] = useState(getTheme);
+  const choose = (t) => {
+    setTheme(t);
+    setT(t);
+  };
+  return (
+    <>
+      <div className="section-head"><h2 className="section-title">תצוגה</h2></div>
+      <div className="group" style={{ padding: 12 }}>
+        <Segmented label="מצב תצוגה" options={[["system", "לפי המכשיר"], ["light", "בהיר"], ["dark", "כהה"]]} value={theme} onChange={choose} />
+      </div>
+      <p className="footnote">״לפי המכשיר״ עובר לבד בין בהיר לכהה לפי הגדרות האייפון. הבחירה נשמרת במכשיר הזה.</p>
+    </>
+  );
+}
 
 /* ---------- portion sizes ---------- */
 
