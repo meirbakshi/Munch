@@ -416,8 +416,9 @@ button { cursor: pointer; }
 .weigh-compact:active { background: var(--fill); }
 .wc-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .wc-head b { font-family: var(--font-rounded); font-size: 17px; font-weight: 600; }
-.wc-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.wc-stats > div { display: grid; gap: 2px; align-content: start; }
+.wc-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border-top: 0.5px solid var(--sep); padding-top: 10px; }
+.wc-stats > div { display: grid; gap: 2px; align-content: start; justify-items: center; text-align: center; padding: 0 4px; }
+.wc-stats > div + div { border-inline-start: 0.5px solid var(--sep); }
 .wc-stats .k { font-size: 12px; color: var(--label-2); }
 .wc-stats .c { font-size: 12px; color: var(--label-3); }
 
@@ -441,3 +442,9 @@ button { cursor: pointer; }
 .insight-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 12px 4px 0; }
 
 .warn-text { color: var(--orange); }
+
+/* weigh-in summary: expected weights as a small table */
+.cmp-head { display: grid; grid-template-columns: 1fr 72px; gap: 12px; margin: 0 16px 7px; font-size: 13px; color: var(--label-2); }
+.cmp-head span:last-child { text-align: end; }
+.cmp-row .cmp-kg { color: var(--label-2); white-space: nowrap; }
+.cmp-row .cmp-gap { width: 72px; flex: none; text-align: end; }

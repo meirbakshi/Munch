@@ -10,8 +10,8 @@ export function Delta({ kg, size = "md" }) {
   const r = Math.round(kg * 10) / 10;
   const tone = Math.abs(r) < 0.2 ? "even" : r < 0 ? "good" : "bad";
   return (
-    <span className={`delta ${tone} ${size}`} dir="ltr">
-      {r > 0 ? "+" : r < 0 ? "−" : ""}{fmt(Math.abs(r), 1)}<small> ק״ג</small>
+    <span className={`delta ${tone} ${size}`}>
+      <span dir="ltr">{r > 0 ? "+" : r < 0 ? "−" : ""}{fmt(Math.abs(r), 1)}</span><small> ק״ג</small>
     </span>
   );
 }
@@ -29,7 +29,7 @@ export function WeighInSummary({ data, date, onClose, onInsights }) {
   const w = weighIn(data, date);
   if (!w) return null;
   const bigGap = w.vsLogs != null && Math.abs(w.vsLogs) >= 1;
-  const should = currentSettings(data)?.sex === "female" ? "היית אמורה לשקול" : "היית אמור לשקול";
+  const should = currentSettings(data)?.sex === "female" ? "כמה היית אמורה לשקול" : "כמה היית אמור לשקול";
   return (
     <div className="stack">
       <div className="weigh-hero">
@@ -42,19 +42,29 @@ export function WeighInSummary({ data, date, onClose, onInsights }) {
         ) : <div className="sublabel">השקילה הראשונה</div>}
       </div>
 
+      <div>
+        <div className="cmp-head"><span>{should}</span><span>פער</span></div>
+        <div className="group">
+          <div className="cell cmp-row">
+            <span className="grow">לפי התוכנית</span>
+            <span className="cmp-kg num">{fmt(w.planned, 1)} ק״ג</span>
+            <span className="cmp-gap"><Delta kg={w.vsPlan} /></span>
+          </div>
+          <div className="cell cmp-row">
+            <span className="grow">לפי הרישומים</span>
+            <span className="cmp-kg num">{fmt(w.predicted, 1)} ק״ג</span>
+            <span className="cmp-gap"><Delta kg={w.vsLogs} /></span>
+          </div>
+        </div>
+        <p className="footnote">התוכנית: {fmt(w.weeklyLossKg, 2)} ק״ג בשבוע מהמשקל ההתחלתי. הרישומים: מהשקילה הקודמת, לפי מה שאכלת ועשית מאז.</p>
+      </div>
+
       <div className="group">
         <div className="cell">
-          <span className="grow">לפי התוכנית {should}<div className="sublabel num">{fmt(w.planned, 1)} ק״ג · {fmt(w.weeklyLossKg, 2)} ק״ג בשבוע</div></span>
-          <Delta kg={w.vsPlan} />
-        </div>
-        <div className="cell">
-          <span className="grow">לפי הרישומים {should}<div className="sublabel num">{fmt(w.predicted, 1)} ק״ג · לפי מה שאכלת ועשית</div></span>
-          <Delta kg={w.vsLogs} />
-        </div>
-        <div className="cell">
-          <span className="grow">{w.reached ? "הגעת ליעד" : "נותרו ליעד"}<div className="sublabel num">יעד {fmt(w.targetWeightKg, 1)} ק״ג</div></span>
+          <span className="grow">{w.reached ? "הגעת ליעד" : "נותרו ליעד"}</span>
           <span className={`value num ${w.reached ? "good" : ""}`} style={{ color: w.reached ? undefined : "var(--label)", fontWeight: 600 }}>{w.reached ? "✓" : `${fmt(w.toGo, 1)} ק״ג`}</span>
         </div>
+        <div className="cell"><span className="grow">משקל היעד</span><span className="value num">{fmt(w.targetWeightKg, 1)} ק״ג</span></div>
         {!w.reached && w.eta && (
           <div className="cell"><span className="grow">הגעה ליעד לפי התוכנית</span><span className="value">{fmtDate(w.eta, true)}</span></div>
         )}
@@ -81,9 +91,9 @@ export function WeighInCompact({ data, date, onOpen }) {
         <Icon.chev className="chev" />
       </div>
       <div className="wc-stats">
-        <div><span className="k">מהשקילה הקודמת</span>{w.prev ? <Delta kg={w.change} size="sm" /> : <span className="delta">–</span>}</div>
-        <div><span className="k">מול התוכנית</span><Delta kg={w.vsPlan} size="sm" /><span className="c num">{fmt(w.planned, 1)}</span></div>
-        <div><span className="k">מול הרישומים</span><Delta kg={w.vsLogs} size="sm" /><span className="c num">{fmt(w.predicted, 1)}</span></div>
+        <div><span className="k">מהשקילה הקודמת</span>{w.prev ? <Delta kg={w.change} size="sm" /> : <span className="delta sm even">–</span>}<span className="c num">{w.prev ? `${fmt(w.prev.kg, 1)} ק״ג` : "ראשונה"}</span></div>
+        <div><span className="k">מול התוכנית</span><Delta kg={w.vsPlan} size="sm" /><span className="c num">{fmt(w.planned, 1)} ק״ג</span></div>
+        <div><span className="k">מול הרישומים</span><Delta kg={w.vsLogs} size="sm" /><span className="c num">{fmt(w.predicted, 1)} ק״ג</span></div>
       </div>
     </button>
   );
