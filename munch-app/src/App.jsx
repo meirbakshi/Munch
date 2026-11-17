@@ -8,6 +8,7 @@ import Insights from "./pages/Insights.jsx";
 import { init, useStore } from "./store.js";
 import { Icon, ToastHost } from "./ui.jsx";
 import { syncThemeFromData } from "./theme.js";
+import { trackVisibleFrame } from "./frame.js";
 
 // Hash routes. "settings" is reserved by claude.ai, so the settings page is "#prefs".
 const ROUTES = ["log", "progress", "insights", "prefs"];
@@ -22,6 +23,8 @@ export default function App() {
   const store = useStore();
   const [route, setRoute] = useState(readRoute);
   const [date, setDate] = useState(todayISO);
+  // keep the shell inside the part of the frame that is on screen
+  useEffect(() => trackVisibleFrame(), []);
   // the app can stay open in the background past midnight: if it was showing "today", move to the new today
   useEffect(() => {
     let shownToday = todayISO();

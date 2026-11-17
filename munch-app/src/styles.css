@@ -158,10 +158,10 @@ html, body { height: 100%; }
 body { overflow: hidden; overscroll-behavior: none; }
 #root { height: 100%; }
 /* fixed to the viewport, so it never depends on how tall the host makes html/body */
-.shell { position: fixed; inset: 0; display: flex; flex-direction: column; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.shell { position: fixed; inset: var(--frame-top, 0px) 0 var(--frame-bottom, 0px); display: flex; flex-direction: column; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
 .scroller { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }
 /* paints the home-indicator strip under the tab bar in the bar's color */
-body::after { content: ""; position: fixed; inset: auto 0 0; height: env(safe-area-inset-bottom, 0px); background: var(--blur); z-index: 19; }
+body::after { content: ""; position: fixed; inset: auto 0 var(--frame-bottom, 0px); height: env(safe-area-inset-bottom, 0px); background: var(--blur); z-index: 19; }
 body {
   margin: 0;
   color: var(--label);
@@ -171,7 +171,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -webkit-text-size-adjust: 100%;
 }
-body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bg); }
+body::before { content: ""; position: fixed; inset: var(--frame-top, 0px) 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bg); }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 :focus-visible { outline: 2px solid var(--tint); outline-offset: 2px; border-radius: 6px; }
@@ -310,7 +310,7 @@ button { cursor: pointer; }
 .alert .title { font-weight: 600; display: block; margin-bottom: 2px; }
 
 /* ---------- sheet ---------- */
-.scrim { position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, 0.35); display: flex; align-items: flex-end; justify-content: center; animation: fade 0.2s ease; }
+.scrim { position: fixed; inset: var(--frame-top, 0px) 0 var(--frame-bottom, 0px); z-index: 40; background: rgba(0, 0, 0, 0.35); display: flex; align-items: flex-end; justify-content: center; animation: fade 0.2s ease; }
 .sheet {
   width: 100%; max-width: 640px; max-height: calc(100% - 40px - env(safe-area-inset-top, 0px)); overflow-y: auto;
   background: var(--bg); border-radius: 14px 14px 0 0;
@@ -328,7 +328,7 @@ button { cursor: pointer; }
 
 .toast {
   position: fixed; z-index: 50; left: 50%; transform: translateX(-50%);
-  bottom: calc(92px + env(safe-area-inset-bottom, 0px)); max-width: min(560px, calc(100% - 32px));
+  bottom: calc(92px + env(safe-area-inset-bottom, 0px) + var(--frame-bottom, 0px)); max-width: min(560px, calc(100% - 32px));
   background: var(--toast-bg); color: #ffffff; border-radius: 14px; padding: 10px 16px; font-size: 15px; font-weight: 400;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); animation: fade 0.2s ease;
 }
