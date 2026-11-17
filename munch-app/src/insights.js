@@ -75,7 +75,7 @@ export const insightsKey = (data) => {
 
 const INSTRUCTIONS = `You analyze one person's own calorie log and weigh-ins, from a personal weight-loss app used in Israel, and write a few insights for them, in Hebrew.
 
-What you get: their plan; a summary per week (Sunday to Saturday: days logged, average net calories eaten (food minus exercise) against their average target, days within target, exercise, share of energy from carbs/protein/fat, and the foods that contributed the most calories); every food and exercise of the last 14 days; and every weigh-in with the weight the plan expected and the weight their logs predicted (start weight minus logged energy deficits / 7,700 kcal per kg).
+What you get: their plan; a summary per week (Sunday to Saturday: days logged, average net calories eaten (food minus exercise) against their average target, days within target, exercise, share of energy from carbs/protein/fat, and the foods that contributed the most calories); every food and exercise of the last 14 days; and every weigh-in with the weight the plan expected and the weight their logs predicted for it (the previous weigh-in minus the energy deficits logged since then / 7,700 kcal per kg, so each weigh-in's prediction covers only the period since the one before).
 
 Write 3 to 5 insights. Each must come from THEIR data, not from general dietary advice:
 - Habits: patterns that recur (e.g. weekend overeating, unlogged days, a food or snack that keeps appearing, evening eating, low protein days) and whether they show up in the weight.
