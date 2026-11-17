@@ -95,16 +95,19 @@ export const firstWeight = (data) => sortedWeights(data)[0] || null;
  */
 export function planFor(s, kg, date) {
   const t = tdee(s, kg, date);
-  const base = t - (s.weeklyLossKg * KCAL_PER_KG) / 7;
   const b = (s.highBoostPct || 0) / 100;
   const nH = s.highDays.length;
+  // the largest weekly loss that keeps every planned day at or above the daily minimum
+  const minBase = nH === 7 ? s.minCalories : (s.minCalories * (7 + nH * b)) / 7;
+  const maxWeeklyLossKg = Math.max(0, ((t - minBase) * 7) / KCAL_PER_KG);
+  // a pace that would need days below the minimum is lowered to the fastest one that doesn't
+  const requested = s.weeklyLossKg;
+  const rate = Math.min(requested, maxWeeklyLossKg);
+  const base = t - (rate * KCAL_PER_KG) / 7;
   const regular = (base * 7) / (7 + nH * b);
   const high = regular * (1 + b);
   const lowest = nH === 7 ? high : regular;
-  // the largest weekly loss that keeps every planned day at or above the floor
-  const minBase = nH === 7 ? s.minCalories : (s.minCalories * (7 + nH * b)) / 7;
-  const maxWeeklyLossKg = Math.max(0, ((t - minBase) * 7) / KCAL_PER_KG);
-  return { bmr: bmr(s, kg, date), tdee: t, base, regular, high, lowest, maxWeeklyLossKg, isHigh: s.highDays.includes(dow(date)) };
+  return { bmr: bmr(s, kg, date), tdee: t, base, regular, high, lowest, maxWeeklyLossKg, rate, requested, capped: rate < requested - 1e-9, isHigh: s.highDays.includes(dow(date)) };
 }
 
 /* ---------- daily totals ---------- */
@@ -226,7 +229,8 @@ export function plannedWeights(data, until) {
   for (let d = start; d <= until; d = addDays(d, 1)) {
     out.set(d, kg);
     const s = settingsAt(data, d);
-    kg = Math.max(s.targetWeightKg, kg - s.weeklyLossKg / 7);
+    const rate = planFor(s, weightAt(data, d) ?? kg, d).rate; // the pace actually planned, never below the daily minimum
+    kg = Math.max(s.targetWeightKg, kg - rate / 7);
   }
   return out;
 }
@@ -244,7 +248,8 @@ export function weighIn(data, date) {
   const planned = plannedWeights(data, date).get(date) ?? null;
   const predicted = expectedWeights(data, computeDays(data, date)).get(date) ?? null;
   const toGo = w.kg - s.targetWeightKg;
-  const weeks = s.weeklyLossKg > 0 && toGo > 0 ? toGo / s.weeklyLossKg : null;
+  const p = planFor(s, w.kg, date);
+  const weeks = p.rate > 0 && toGo > 0 ? toGo / p.rate : null;
   return {
     date, kg: w.kg, prev,
     change: prev ? w.kg - prev.kg : null,
@@ -253,6 +258,12 @@ export function weighIn(data, date) {
     vsLogs: predicted != null ? w.kg - predicted : null,
     toGo, reached: toGo <= 0,
     eta: weeks != null ? addDays(date, Math.ceil(weeks * 7)) : null,
-    weeklyLossKg: s.weeklyLossKg, targetWeightKg: s.targetWeightKg,
+    weeklyLossKg: p.rate, paceCapped: p.capped, targetWeightKg: s.targetWeightKg,
   };
+}
+
+/** The log-based prediction for today: today's weigh-in if there is one, else the last weigh-in plus what was logged since. */
+export function predictedToday(data, expected, today) {
+  const w = data.weights.find((x) => x.date === today);
+  return w ? w.kg : expected.get(today) ?? null;
 }
