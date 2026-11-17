@@ -157,7 +157,8 @@ html, body { background: var(--bg); }
 html, body { height: 100%; }
 body { overflow: hidden; overscroll-behavior: none; }
 #root { height: 100%; }
-.shell { height: 100%; display: flex; flex-direction: column; }
+/* fixed to the viewport, so it never depends on how tall the host makes html/body */
+.shell { position: fixed; inset: 0; display: flex; flex-direction: column; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
 .scroller { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }
 /* paints the home-indicator strip under the tab bar in the bar's color */
 body::after { content: ""; position: fixed; inset: auto 0 0; height: env(safe-area-inset-bottom, 0px); background: var(--blur); z-index: 19; }
