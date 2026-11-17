@@ -4,10 +4,10 @@ const dir = "dist/assets";
 const files = fs.readdirSync(dir);
 const css = files.filter((f) => f.endsWith(".css")).map((f) => fs.readFileSync(`${dir}/${f}`, "utf8")).join("\n");
 const js = files.filter((f) => f.endsWith(".js")).map((f) => fs.readFileSync(`${dir}/${f}`, "utf8")).join("\n");
-const page = `<title>מאנץ׳</title>
+const page = `<title>יומן השומן</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="מאנץ׳">
+<meta name="apple-mobile-web-app-title" content="יומן השומן">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">

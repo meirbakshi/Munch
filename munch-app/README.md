@@ -1,4 +1,4 @@
-# מאנץ׳ (claude.ai artifact)
+# יומן השומן (claude.ai artifact)
 
 A personal calorie tracker in Hebrew, built for iPhone. It runs as a private claude.ai artifact:
 https://claude.ai/artifact/GuTLzuxYGA2xcpsfDyUEt8

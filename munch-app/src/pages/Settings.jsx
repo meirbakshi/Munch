@@ -169,7 +169,7 @@ export default function Settings({ storageKind }) {
   return (
     <>
       <div className="nav-row" />
-      <h1 className="large-title">{onboarding ? "ברוכים הבאים למאנץ׳" : "הגדרות"}</h1>
+      <h1 className="large-title">{onboarding ? "ברוכים הבאים ליומן השומן" : "הגדרות"}</h1>
       <p className="subtitle">{onboarding ? "כמה פרטים, ונחשב לכם יעד קלורי יומי." : "שינוי פרטים או יעד מעדכן את היעדים מהיום והלאה. ימים קודמים לא משתנים."}</p>
 
       {onboarding ? (
