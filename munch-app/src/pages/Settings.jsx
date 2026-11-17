@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getDownloads } from "../claude.js";
 import { norm } from "../ai.js";
 import {
@@ -20,11 +20,29 @@ export function WeightSheet({ onClose, existing = null }) {
   const v = parseFloat(kg);
   const valid = v >= 30 && v <= 300 && date <= today;
   const [savedDate, setSavedDate] = useState(null); // after saving, the sheet shows the weigh-in summary
+  const [paceChange, setPaceChange] = useState(null); // set when the new weight lowered the weekly pace
   const save = async () => {
     try {
+      let change = null;
       await mutate((d) => {
         d.weights = [...d.weights.filter((w) => w.date !== date && w.date !== existing?.date), { date, kg: round1(v) }];
+        // a lower weight means a lower daily expenditure: if the saved pace would now need days below
+        // the minimum, save the fastest pace that doesn't (from today, like any settings change)
+        const latest = [...d.weights].sort((x, y) => y.date.localeCompare(x.date))[0];
+        const cur = currentSettings(d);
+        if (cur && latest.date === date) {
+          const p = planFor(cur, latest.kg, today);
+          if (p.capped) {
+            const rate = Math.floor(p.rate * 100) / 100;
+            change = { from: cur.weeklyLossKg, to: rate, min: cur.minCalories };
+            const entry = { ...cur, weeklyLossKg: rate, from: today };
+            const h = d.settingsHistory;
+            if (h[h.length - 1].from === today) h[h.length - 1] = entry;
+            else h.push(entry);
+          }
+        }
       });
+      setPaceChange(change);
       setSavedDate(date);
     } catch (e) {
       toast(e.message);
@@ -33,6 +51,12 @@ export function WeightSheet({ onClose, existing = null }) {
   if (savedDate) {
     return (
       <Sheet title="השקילה נשמרה" onClose={onClose} start={<span />} end={<button className="link" style={{ fontWeight: 600 }} onClick={onClose}>סיום</button>}>
+        {paceChange && (
+          <div className="alert info" style={{ marginBottom: 10 }}>
+            <span className="title">הקצב השבועי עודכן ל-{fmt(paceChange.to, 2)} ק״ג</span>
+            במשקל החדש ההוצאה היומית שלך קטנה יותר, ובקצב הקודם ({fmt(paceChange.from, 2)} ק״ג בשבוע) היעד היומי היה יורד מתחת למינימום ({fmt(paceChange.min)} קק״ל). לכן הקצב הותאם, והיעדים ותאריך היעד חושבו מחדש.
+          </div>
+        )}
         <WeighInSummary data={data} date={savedDate} onInsights={() => { onClose(); location.hash = "insights"; }} />
       </Sheet>
     );
@@ -63,8 +87,21 @@ export default function Settings({ storageKind }) {
   const onboarding = !s;
   const lw = latestWeight(data);
   const today = todayISO();
-  const [f, setF] = useState(() => (s ? { ...s, weightKg: lw ? String(lw.kg) : "" } : { ...blank }));
+  const fromSaved = () => (s ? { ...s, weightKg: lw ? String(lw.kg) : "" } : { ...blank });
+  const [f, setF] = useState(fromSaved);
+  // settings can change underneath this screen (a weigh-in may lower the pace): if nothing here was edited, show the new values
+  const savedKey = stableJson(s);
+  const shown = useRef(s); // the saved settings the form was filled from
+  useEffect(() => {
+    const prev = shown.current;
+    shown.current = s;
+    if (!prev || !s || stableJson(prev) === savedKey) return;
+    // compare as saved values (the form holds text), the same way "dirty" does
+    const untouched = stableJson({ ...prev, from: undefined }) === stableJson({ ...parsed, from: undefined });
+    if (untouched) setF(fromSaved());
+  }, [savedKey]);
   const [saving, setSaving] = useState(false);
+  const [paceNotice, setPaceNotice] = useState(null); // explains an adjusted pace after saving
   const [weighIn, setWeighIn] = useState(false);
   const [allWeights, setAllWeights] = useState(false);
   const [editWeight, setEditWeight] = useState(null);
@@ -112,8 +149,11 @@ export default function Settings({ storageKind }) {
         else h.push(entry);
         if (onboarding) d.weights = [...d.weights.filter((w) => w.date !== today), { date: today, kg: round1(kgNow) }];
       });
-      if (paceCapped) setF((x) => ({ ...x, weeklyLossKg: String(savedRate) })); // the field shows the pace that was saved
-      toast(onboarding ? "מוכנים! אפשר להתחיל לרשום" : "ההגדרות נשמרו. היעדים מחושבים מחדש מהיום.");
+      if (paceCapped) {
+        setF((x) => ({ ...x, weeklyLossKg: String(savedRate) })); // the field shows the pace that was saved
+        setPaceNotice({ asked: parsed.weeklyLossKg, saved: savedRate, min: parsed.minCalories });
+      }
+      if (!paceCapped || onboarding) toast(onboarding ? "מוכנים! אפשר להתחיל לרשום" : "ההגדרות נשמרו. היעדים מחושבים מחדש מהיום.");
       if (onboarding) location.hash = "#log";
     } catch (e) {
       toast(e.message);
@@ -178,7 +218,7 @@ export default function Settings({ storageKind }) {
       <div className="section-head"><h2 className="section-title">היעד</h2></div>
       <div className="group">
         <label className="cell"><span className="grow">משקל יעד</span><input id="s-target" className="inline num" type="number" inputMode="decimal" step="0.1" placeholder="ק״ג" value={f.targetWeightKg} onChange={(e) => set("targetWeightKg", e.target.value)} style={{ width: "5em" }} /><span className="sublabel">ק״ג</span></label>
-        <label className="cell"><span className="grow">ירידה בשבוע</span><input id="s-rate" className="inline num" type="number" inputMode="decimal" step="0.05" value={f.weeklyLossKg} onChange={(e) => set("weeklyLossKg", e.target.value)} style={{ width: "5em" }} /><span className="sublabel">ק״ג</span></label>
+        <label className="cell"><span className="grow">ירידה בשבוע{paceCapped && <div className="sublabel warn-text">יותאם ל-{fmt(savedRate, 2)} ק״ג, כדי שאף יום לא יירד מהמינימום</div>}</span><input id="s-rate" className="inline num" type="number" inputMode="decimal" step="0.05" value={f.weeklyLossKg} onChange={(e) => set("weeklyLossKg", e.target.value)} style={{ width: "5em" }} /><span className="sublabel">ק״ג</span></label>
         <div className="cell" style={{ display: "grid", gap: 10 }}>
           <span>ימים עם צריכה גבוהה יותר</span>
           <div className="chips" role="group" aria-label="ימים מוגברים">
@@ -250,7 +290,7 @@ export default function Settings({ storageKind }) {
       <div className="section-head"><h2 className="section-title">היעד</h2></div>
       <div className="group">
         <label className="cell"><span className="grow">משקל יעד</span><input id="s-target" className="inline num" type="number" inputMode="decimal" step="0.1" placeholder="ק״ג" value={f.targetWeightKg} onChange={(e) => set("targetWeightKg", e.target.value)} style={{ width: "5em" }} /><span className="sublabel">ק״ג</span></label>
-        <label className="cell"><span className="grow">ירידה בשבוע</span><input id="s-rate" className="inline num" type="number" inputMode="decimal" step="0.05" value={f.weeklyLossKg} onChange={(e) => set("weeklyLossKg", e.target.value)} style={{ width: "5em" }} /><span className="sublabel">ק״ג</span></label>
+        <label className="cell"><span className="grow">ירידה בשבוע{paceCapped && <div className="sublabel warn-text">יותאם ל-{fmt(savedRate, 2)} ק״ג, כדי שאף יום לא יירד מהמינימום</div>}</span><input id="s-rate" className="inline num" type="number" inputMode="decimal" step="0.05" value={f.weeklyLossKg} onChange={(e) => set("weeklyLossKg", e.target.value)} style={{ width: "5em" }} /><span className="sublabel">ק״ג</span></label>
         <div className="cell" style={{ display: "grid", gap: 10 }}>
           <span>ימים עם צריכה גבוהה יותר</span>
           <div className="chips" role="group" aria-label="ימים מוגברים">
@@ -320,6 +360,21 @@ export default function Settings({ storageKind }) {
           <FoodLibrary />
           <Backup storageKind={storageKind} />
         </>
+      )}
+      {paceNotice && (
+        <Sheet title="הקצב הותאם" onClose={() => setPaceNotice(null)} start={<span />} end={<button className="link" style={{ fontWeight: 600 }} onClick={() => setPaceNotice(null)}>הבנתי</button>}>
+          <div className="stack">
+            <div className="weigh-hero">
+              <div className="weigh-kg num">{fmt(paceNotice.saved, 2)}<small> ק״ג בשבוע</small></div>
+              <div className="sublabel">במקום {fmt(paceNotice.asked, 2)} ק״ג בשבוע</div>
+            </div>
+            <p className="footnote" style={{ margin: "0 4px", fontSize: 15, lineHeight: "20px" }}>
+              כדי לרדת {fmt(paceNotice.asked, 2)} ק״ג בשבוע, חלק מהימים היו צריכים יעד נמוך מהמינימום היומי שהגדרת ({fmt(paceNotice.min)} קק״ל). לכן נשמר הקצב המהיר ביותר שלא יורד ממנו. היעדים היומיים ותאריך היעד מחושבים לפיו.
+            </p>
+            <p className="footnote" style={{ margin: "0 4px" }}>כשהמשקל יירד, ההוצאה היומית תקטן, והקצב יעודכן שוב אם יהיה צורך. אפשר לבחור קצב מהיר יותר אם מורידים את המינימום היומי.</p>
+            <button className="btn block gray" onClick={() => setPaceNotice(null)}>הבנתי</button>
+          </div>
+        </Sheet>
       )}
       {weighIn && <WeightSheet onClose={() => setWeighIn(false)} />}
       {editWeight && <WeightSheet existing={editWeight} onClose={() => setEditWeight(null)} />}

@@ -439,3 +439,5 @@ button { cursor: pointer; }
 .insight-evidence { font-size: 13px; line-height: 18px; color: var(--label-2); margin: 2px 0 0; }
 .insight-busy { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 14px; margin-bottom: 10px; }
 .insight-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 12px 4px 0; }
+
+.warn-text { color: var(--orange); }
