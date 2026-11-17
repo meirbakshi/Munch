@@ -97,19 +97,22 @@ export default function Settings({ storageKind }) {
   if (kgNow && parsed.targetWeightKg >= kgNow && parsed.weeklyLossKg > 0) problems.push("משקל היעד צריך להיות נמוך מהמשקל הנוכחי (או קצב ירידה 0 לשמירה)");
 
   const plan = problems.length === 0 ? planFor(parsed, kgNow, today) : null;
-  const tooFast = plan && plan.lowest < parsed.minCalories - 0.5;
-  const canSave = plan && !tooFast;
+  // a pace that needs days below the minimum is lowered automatically (calc.planFor); it's saved that way
+  const paceCapped = plan && plan.capped;
+  const savedRate = paceCapped ? Math.floor(plan.rate * 100) / 100 : parsed.weeklyLossKg;
+  const canSave = Boolean(plan);
 
   const save = async () => {
     setSaving(true);
     try {
       await mutate((d) => {
-        const entry = { ...parsed, from: today };
+        const entry = { ...parsed, weeklyLossKg: savedRate, from: today };
         const h = d.settingsHistory;
         if (h.length && h[h.length - 1].from === today) h[h.length - 1] = entry;
         else h.push(entry);
         if (onboarding) d.weights = [...d.weights.filter((w) => w.date !== today), { date: today, kg: round1(kgNow) }];
       });
+      if (paceCapped) setF((x) => ({ ...x, weeklyLossKg: String(savedRate) })); // the field shows the pace that was saved
       toast(onboarding ? "מוכנים! אפשר להתחיל לרשום" : "ההגדרות נשמרו. היעדים מחושבים מחדש מהיום.");
       if (onboarding) location.hash = "#log";
     } catch (e) {
@@ -121,7 +124,7 @@ export default function Settings({ storageKind }) {
 
   const dirty = onboarding || stableJson({ ...s, from: undefined }) !== stableJson({ ...parsed, from: undefined });
   const weightsDesc = [...data.weights].sort((a, b) => b.date.localeCompare(a.date));
-  const weeksToGoal = plan && parsed.weeklyLossKg > 0 ? (kgNow - parsed.targetWeightKg) / parsed.weeklyLossKg : null;
+  const weeksToGoal = plan && plan.rate > 0 ? (kgNow - parsed.targetWeightKg) / plan.rate : null;
 
   return (
     <>
@@ -205,14 +208,13 @@ export default function Settings({ storageKind }) {
             )}
             {weeksToGoal != null && <div className="cell"><span className="grow">הגעה ליעד לפי התוכנית</span><span className="value">{fmtDate(addDays(today, Math.round(weeksToGoal * 7)), true)}</span></div>}
           </div>
-          {tooFast ? (
-            <div className="alert error" style={{ marginTop: 10 }}>
-              <span className="title">הקצב גבוה מדי</span>
-              כדי לרדת {fmt(parsed.weeklyLossKg, 2)} ק״ג בשבוע, היום הנמוך בשבוע יצטרך {fmt(plan.lowest)} קק״ל, פחות מהמינימום ({fmt(parsed.minCalories)}). הקצב המרבי עם ההגדרות האלה: <b>{fmt(Math.floor(plan.maxWeeklyLossKg * 20) / 20, 2)} ק״ג בשבוע</b>.
+          {paceCapped && (
+            <div className="alert info" style={{ marginTop: 10 }}>
+              <span className="title">הקצב הותאם ל-{fmt(savedRate, 2)} ק״ג בשבוע</span>
+              כדי לרדת {fmt(parsed.weeklyLossKg, 2)} ק״ג בשבוע היה צריך ימים מתחת למינימום היומי ({fmt(parsed.minCalories)} קק״ל), ולכן הקצב הוגבל לקצב המהיר ביותר שלא יורד ממנו. היעדים, המשקל לפי התוכנית ותאריך היעד מחושבים לפיו, וגם בהמשך, כשהמשקל יורד, הקצב יתעדכן כדי לא לרדת מהמינימום.
             </div>
-          ) : (
-            <p className="footnote">ירידה של {fmt(parsed.weeklyLossKg, 2)} ק״ג בשבוע = גירעון של כ-{fmt((parsed.weeklyLossKg * KCAL_PER_KG) / 7)} קק״ל ביום. החישוב לפי נוסחת Mifflin-St Jeor.</p>
           )}
+          <p className="footnote">ירידה של {fmt(plan.rate, 2)} ק״ג בשבוע = גירעון של כ-{fmt((plan.rate * KCAL_PER_KG) / 7)} קק״ל ביום. החישוב לפי נוסחת Mifflin-St Jeor.</p>
         </>
       ) : (
         <div className="group"><div className="empty" style={{ padding: 18 }}>{problems.join(" · ")}</div></div>
@@ -278,14 +280,13 @@ export default function Settings({ storageKind }) {
             )}
             {weeksToGoal != null && <div className="cell"><span className="grow">הגעה ליעד לפי התוכנית</span><span className="value">{fmtDate(addDays(today, Math.round(weeksToGoal * 7)), true)}</span></div>}
           </div>
-          {tooFast ? (
-            <div className="alert error" style={{ marginTop: 10 }}>
-              <span className="title">הקצב גבוה מדי</span>
-              כדי לרדת {fmt(parsed.weeklyLossKg, 2)} ק״ג בשבוע, היום הנמוך בשבוע יצטרך {fmt(plan.lowest)} קק״ל, פחות מהמינימום ({fmt(parsed.minCalories)}). הקצב המרבי עם ההגדרות האלה: <b>{fmt(Math.floor(plan.maxWeeklyLossKg * 20) / 20, 2)} ק״ג בשבוע</b>.
+          {paceCapped && (
+            <div className="alert info" style={{ marginTop: 10 }}>
+              <span className="title">הקצב הותאם ל-{fmt(savedRate, 2)} ק״ג בשבוע</span>
+              כדי לרדת {fmt(parsed.weeklyLossKg, 2)} ק״ג בשבוע היה צריך ימים מתחת למינימום היומי ({fmt(parsed.minCalories)} קק״ל), ולכן הקצב הוגבל לקצב המהיר ביותר שלא יורד ממנו. היעדים, המשקל לפי התוכנית ותאריך היעד מחושבים לפיו, וגם בהמשך, כשהמשקל יורד, הקצב יתעדכן כדי לא לרדת מהמינימום.
             </div>
-          ) : (
-            <p className="footnote">ירידה של {fmt(parsed.weeklyLossKg, 2)} ק״ג בשבוע = גירעון של כ-{fmt((parsed.weeklyLossKg * KCAL_PER_KG) / 7)} קק״ל ביום. החישוב לפי נוסחת Mifflin-St Jeor.</p>
           )}
+          <p className="footnote">ירידה של {fmt(plan.rate, 2)} ק״ג בשבוע = גירעון של כ-{fmt((plan.rate * KCAL_PER_KG) / 7)} קק״ל ביום. החישוב לפי נוסחת Mifflin-St Jeor.</p>
         </>
       ) : (
         <div className="group"><div className="empty" style={{ padding: 18 }}>{problems.join(" · ")}</div></div>

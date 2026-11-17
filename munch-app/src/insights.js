@@ -1,6 +1,6 @@
 import { getSample } from "./claude.js";
 import {
-  addDays, computeDays, currentSettings, expectedWeights, firstWeight, latestWeight, macroShares, plannedWeights, startDate, todayISO, weekStart,
+  addDays, computeDays, currentSettings, expectedWeights, firstWeight, latestWeight, macroShares, planFor, plannedWeights, startDate, todayISO, weekStart,
 } from "./calc.js";
 
 /* ---------- what the analysis is based on: the user's own data, summarized ---------- */
@@ -59,7 +59,7 @@ export function insightsInput(data) {
 
   return {
     today, startedOn: start, sex: s.sex,
-    plan: { weeklyLossKg: s.weeklyLossKg, targetWeightKg: s.targetWeightKg, startWeightKg: firstWeight(data)?.kg, minDailyKcal: s.minCalories },
+    plan: { weeklyLossKg: r1(planFor(s, latestWeight(data)?.kg ?? firstWeight(data)?.kg, today).rate), targetWeightKg: s.targetWeightKg, startWeightKg: firstWeight(data)?.kg, minDailyKcal: s.minCalories },
     weeks: weekRows, last14Days: recent, weighIns,
   };
 }

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   addDays, computeDays, currentSettings, daysBetween, expectedWeights, firstWeight, fmt, fmtDate, latestWeight,
-  macroShares, parseISO, startDate, todayISO, weighIn, weightAt,
+  macroShares, parseISO, predictedToday, startDate, todayISO, weighIn, weightAt,
 } from "../calc.js";
 import { useStore } from "../store.js";
 import { CaloriesChart, Icon, LineChart, MacroChart, Segmented, Sheet } from "../ui.jsx";
@@ -33,10 +33,11 @@ export default function History({ openDay }) {
   const w0 = firstWeight(data), lw = latestWeight(data);
   const lost = w0 && lw ? w0.kg - lw.kg : 0;
   const toGo = lw ? lw.kg - s.targetWeightKg : 0;
-  const expNow = expected.get(today);
+  const expNow = predictedToday(data, expected, today);
 
   // when the plan reaches the target, going on from the latest weigh-in at the planned rate (updates with each weigh-in)
-  const planEta = lw ? weighIn(data, lw.date)?.eta ?? null : null;
+  const lastWeighIn = lw ? weighIn(data, lw.date) : null;
+  const planEta = lastWeighIn?.eta ?? null;
   const logged = days.filter((d) => d.logged && d.date < today);
   const avgEaten = logged.length ? logged.reduce((a, d) => a + d.eaten, 0) / logged.length : null;
   const avgFood = logged.length ? logged.reduce((a, d) => a + d.food, 0) / logged.length : null;
@@ -87,7 +88,7 @@ export default function History({ openDay }) {
         <div className="tile">
           <span className="k">הגעה ליעד לפי התוכנית</span>
           <span className="v v-date">{reached ? "הגעת" : planEta ? fmtDate(planEta) : "–"}</span>
-          <span className="d num">{planEta ? `${parseISO(planEta).getFullYear()} · ` : ""}{fmt(s.weeklyLossKg, 2)} ק״ג בשבוע</span>
+          <span className="d num">{planEta ? `${parseISO(planEta).getFullYear()} · ` : ""}{fmt(lastWeighIn?.weeklyLossKg ?? s.weeklyLossKg, 2)} ק״ג בשבוע</span>
         </div>
         <div className="tile">
           <span className="k">צפוי לפי הרישומים היום</span>
