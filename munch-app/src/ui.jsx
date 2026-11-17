@@ -8,6 +8,7 @@ export const Icon = {
   log: (p) => <S {...p}><path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10" /><path d="M17 21V3c-2 1.5-3 4-3 7 0 1.5.8 2.5 3 2.5" /></S>,
   chart: (p) => <S {...p}><path d="M4 20h16" /><rect x="5.5" y="11" width="3" height="6.5" rx="1" fill="currentColor" stroke="none" /><rect x="10.5" y="6" width="3" height="11.5" rx="1" fill="currentColor" stroke="none" /><rect x="15.5" y="9" width="3" height="8.5" rx="1" fill="currentColor" stroke="none" /></S>,
   gear: (p) => <S {...p}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></S>,
+  bulb: (p) => <S {...p}><path d="M9 18h6M10 21h4" /><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.2h5c0-.9.4-1.7 1.1-2.2A6 6 0 0 0 12 3z" /></S>,
   // chevrons are drawn for RTL: "back" (earlier) points right, "forward" (later) points left
   earlier: (p) => <S {...p} w={2.4}><path d="M9 5l7 7-7 7" /></S>,
   later: (p) => <S {...p} w={2.4}><path d="M15 5l-7 7 7 7" /></S>,
