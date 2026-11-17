@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import {
-  KCAL_PER_KG, addDays, computeDays, currentSettings, daysBetween, expectedWeights, firstWeight, fmt, fmtDate, latestWeight,
-  macroShares, startDate, todayISO, weightAt, weightTrend,
+  addDays, computeDays, currentSettings, daysBetween, expectedWeights, firstWeight, fmt, fmtDate, latestWeight,
+  macroShares, parseISO, startDate, todayISO, weightAt,
 } from "../calc.js";
 import { useStore } from "../store.js";
-import { CaloriesChart, Icon, LineChart, MacroChart, Segmented } from "../ui.jsx";
+import { CaloriesChart, Icon, LineChart, MacroChart, Segmented, Sheet } from "../ui.jsx";
+import { WeighInCompact, WeighInSummary } from "../weighin.jsx";
+import { WeightSheet } from "./Settings.jsx";
 
 const RANGES = [["7", "שבוע"], ["30", "חודש"], ["90", "3 חודשים"], ["all", "הכול"]];
 const VIEWS = [["weight", "משקל"], ["calories", "קלוריות"], ["macros", "הרכב"]];
@@ -16,6 +18,8 @@ export default function History({ openDay }) {
   const [range, setRange] = useState("30");
   const [view, setView] = useState("weight");
   const [moreDays, setMoreDays] = useState(false);
+  const [weighInOpen, setWeighInOpen] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const all = useMemo(() => computeDays(data, today), [data, today]);
   const expected = useMemo(() => expectedWeights(data, all), [data, all]);
 
@@ -29,20 +33,14 @@ export default function History({ openDay }) {
   const w0 = firstWeight(data), lw = latestWeight(data);
   const lost = w0 && lw ? w0.kg - lw.kg : 0;
   const toGo = lw ? lw.kg - s.targetWeightKg : 0;
-  // "Should weigh now": from the start weight and the energy balance of every logged day up to the last weigh-in
-  const expAtLast = lw ? expected.get(lw.date) : null;
   const expNow = expected.get(today);
-  const gap = expAtLast != null ? lw.kg - expAtLast : null;
 
-  const trend = weightTrend(data, today); // kg/day
-  const planDays = s.weeklyLossKg > 0 && toGo > 0 ? (toGo / s.weeklyLossKg) * 7 : null;
-  const trendDays = trend != null && trend < 0 && toGo > 0 ? toGo / -trend : null;
+  // when the plan reaches the target, going on from the current weight at the planned rate
+  const planEta = s.weeklyLossKg > 0 && toGo > 0 ? addDays(today, Math.ceil((toGo / s.weeklyLossKg) * 7)) : null;
   const logged = days.filter((d) => d.logged && d.date < today);
   const avgEaten = logged.length ? logged.reduce((a, d) => a + d.eaten, 0) / logged.length : null;
   const avgFood = logged.length ? logged.reduce((a, d) => a + d.food, 0) / logged.length : null;
   const totalBurned = days.reduce((a, d) => a + (d.logged ? d.burned : 0), 0);
-  const avgDeficit = logged.length ? logged.reduce((a, d) => a + (d.tdee - d.eaten), 0) / logged.length : null;
-  const eatDays = avgDeficit > 0 && toGo > 0 ? toGo / (avgDeficit / KCAL_PER_KG) : null;
   const onTarget = logged.filter((d) => d.eaten <= d.target).length;
   let streak = 0;
   for (let d = all.get(today)?.logged ? today : addDays(today, -1); all.get(d)?.logged; d = addDays(d, -1)) streak++;
@@ -66,41 +64,45 @@ export default function History({ openDay }) {
       <h1 className="large-title">התקדמות</h1>
       <p className="subtitle">מאז {fmtDate(start, true)} · {daysBetween(start, today) + 1} ימים</p>
 
+      {/* the overall target and progress */}
       <div className="tiles">
         <div className="tile">
           <span className="k">ירדת עד עכשיו</span>
           <span className="v num">{fmt(lost, 1)}<small>ק״ג</small></span>
-          <span className="d num">{fmt(w0?.kg, 1)} → {fmt(lw?.kg, 1)}</span>
+          <span className="d num" dir="rtl">{fmt(w0?.kg, 1)} ← {fmt(lw?.kg, 1)}</span>
         </div>
         <div className="tile">
           <span className="k">{reached ? "הגעת ליעד!" : "נותרו ליעד"}</span>
           <span className={`v num ${reached ? "good" : ""}`}>{reached ? fmt(s.targetWeightKg, 1) : fmt(toGo, 1)}<small>ק״ג</small></span>
           <span className="d num">יעד {fmt(s.targetWeightKg, 1)} ק״ג</span>
         </div>
-        <div className="tile wide">
-          <span className="k">כמה ״אמור״ הייתי לשקול</span>
-          {expAtLast != null ? (
-            <>
-              <span className="v num">{fmt(expAtLast, 1)}<small>ק״ג לפי הרישומים · בפועל {fmt(lw.kg, 1)}</small></span>
-              <span className="d">
-                ב{fmtDate(lw.date)} (השקילה האחרונה).{" "}
-                {Math.abs(gap) < 0.3 ? <span className="good">המשקל בפועל תואם את הרישומים.</span> : gap > 0 ? <span>המשקל בפועל גבוה ב-{fmt(gap, 1)} ק״ג מהצפוי: אולי חסרים רישומים, או שההערכה של ההוצאה היומית גבוהה מדי. תנודות של מים נפוצות.</span> : <span className="good">המשקל בפועל נמוך ב-{fmt(-gap, 1)} ק״ג מהצפוי.</span>}
-                {expNow != null && lw.date !== today && <> לפי הרישומים עד היום: {fmt(expNow, 1)} ק״ג.</>}
-              </span>
-            </>
-          ) : <span className="d">יופיע אחרי השקילה הראשונה.</span>}
+        <div className="tile wide tile-row">
+          <div className="tile-col">
+            <span className="k">משקל נוכחי</span>
+            <span className="v num">{fmt(lw?.kg, 1)}<small>ק״ג</small></span>
+            <span className="d">עודכן {lw ? fmtDate(lw.date) : "–"}</span>
+          </div>
+          <button className="btn small tinted" onClick={() => setWeighInOpen(true)}>עדכון משקל</button>
         </div>
-        <div className="tile wide">
-          <span className="k">מתי אגיע ליעד</span>
-          {reached ? <span className="v good">כבר הגעת</span> : (
-            <div style={{ display: "grid", gap: 6, marginTop: 4 }}>
-              <ProjRow label="לפי התוכנית" days={planDays} hint={`${fmt(s.weeklyLossKg, 2)} ק״ג בשבוע`} />
-              <ProjRow label="לפי השקילות" days={trendDays} hint={trend != null ? `${fmt(-trend * 7, 2)} ק״ג בשבוע ב-4 השבועות האחרונים` : "צריך שקילות לאורך שבוע לפחות"} />
-              <ProjRow label="לפי מה שאכלת" days={eatDays} hint={avgDeficit != null ? `גירעון ממוצע ${fmt(avgDeficit)} קק״ל ביום בטווח שנבחר` : "אין עדיין ימים רשומים"} />
-            </div>
-          )}
+        <div className="tile">
+          <span className="k">הגעה ליעד לפי התוכנית</span>
+          <span className="v v-date">{reached ? "הגעת" : planEta ? fmtDate(planEta) : "–"}</span>
+          <span className="d num">{planEta ? `${parseISO(planEta).getFullYear()} · ` : ""}{fmt(s.weeklyLossKg, 2)} ק״ג בשבוע</span>
+        </div>
+        <div className="tile">
+          <span className="k">צפוי לפי הרישומים היום</span>
+          <span className="v num">{expNow != null ? fmt(expNow, 1) : "–"}<small>ק״ג</small></span>
+          <span className="d">לפי מה שאכלת ועשית</span>
         </div>
       </div>
+
+      {/* the latest weigh-in, condensed */}
+      {lw && (
+        <>
+          <div className="section-head"><h2 className="section-title">השקילה האחרונה</h2></div>
+          <WeighInCompact data={data} date={lw.date} onOpen={() => setSummaryOpen(true)} />
+        </>
+      )}
 
       <div className="section-head"><h2 className="section-title strong">גרפים</h2></div>
       <div className="stack">
@@ -172,17 +174,13 @@ export default function History({ openDay }) {
       </div>
       {days.length > 10 && <button className="link" style={{ margin: "6px 16px" }} onClick={() => setMoreDays(!moreDays)}>{moreDays ? "פחות ימים" : "ימים נוספים"}</button>}
       {moreDays && days.length > 92 && <p className="footnote">מוצגים 92 הימים האחרונים בטווח. לימים מוקדמים יותר אפשר לעבור ביומן.</p>}
+      {weighInOpen && <WeightSheet onClose={() => setWeighInOpen(false)} />}
+      {summaryOpen && lw && (
+        <Sheet title="השקילה האחרונה" onClose={() => setSummaryOpen(false)} start={<span />} end={<button className="link" style={{ fontWeight: 600 }} onClick={() => setSummaryOpen(false)}>סיום</button>}>
+          <WeighInSummary data={data} date={lw.date} onInsights={() => { setSummaryOpen(false); location.hash = "insights"; }} />
+        </Sheet>
+      )}
     </>
-  );
-}
-
-function ProjRow({ label, days, hint }) {
-  const today = todayISO();
-  return (
-    <div className="row-gap" style={{ justifyContent: "space-between", alignItems: "baseline", flexWrap: "nowrap" }}>
-      <span style={{ fontSize: 15, minWidth: 0 }}>{label}<div className="sublabel">{hint}</div></span>
-      <span style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{days != null && days < 3650 ? fmtDate(addDays(today, Math.ceil(days)), true) : "–"}</span>
-    </div>
   );
 }
 

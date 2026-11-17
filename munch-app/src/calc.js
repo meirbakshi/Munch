@@ -209,3 +209,45 @@ export const mealByTime = () => {
   const h = new Date().getHours();
   return h < 11 ? "breakfast" : h < 16 ? "lunch" : h < 21 ? "dinner" : "snack";
 };
+
+/**
+ * The plan's weight path: from the starting weight, down by the planned weekly loss / 7 each day
+ * (the settings in effect that day), never below the target. Map date -> planned kg at the start of that day.
+ */
+export function plannedWeights(data, until) {
+  const out = new Map(), start = startDate(data), w0 = firstWeight(data);
+  if (!start || !w0) return out;
+  let kg = w0.kg;
+  for (let d = start; d <= until; d = addDays(d, 1)) {
+    out.set(d, kg);
+    const s = settingsAt(data, d);
+    kg = Math.max(s.targetWeightKg, kg - s.weeklyLossKg / 7);
+  }
+  return out;
+}
+
+/**
+ * Everything about one weigh-in: the weight, the change since the previous weigh-in, where the plan
+ * and the logs say the weight should be on that day, how much is left, and when the plan reaches the target.
+ */
+export function weighIn(data, date) {
+  const ws = [...data.weights].sort((a, b) => a.date.localeCompare(b.date));
+  const w = ws.find((x) => x.date === date);
+  if (!w) return null;
+  const prev = [...ws].reverse().find((x) => x.date < date) || null;
+  const s = settingsAt(data, date);
+  const planned = plannedWeights(data, date).get(date) ?? null;
+  const predicted = expectedWeights(data, computeDays(data, date)).get(date) ?? null;
+  const toGo = w.kg - s.targetWeightKg;
+  const weeks = s.weeklyLossKg > 0 && toGo > 0 ? toGo / s.weeklyLossKg : null;
+  return {
+    date, kg: w.kg, prev,
+    change: prev ? w.kg - prev.kg : null,
+    planned, predicted,
+    vsPlan: planned != null ? w.kg - planned : null,
+    vsLogs: predicted != null ? w.kg - predicted : null,
+    toGo, reached: toGo <= 0,
+    eta: weeks != null ? addDays(date, Math.ceil(weeks * 7)) : null,
+    weeklyLossKg: s.weeklyLossKg, targetWeightKg: s.targetWeightKg,
+  };
+}

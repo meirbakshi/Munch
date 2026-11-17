@@ -7,6 +7,7 @@ import {
 import { emptyData, mutate, newId, stableJson, useStore } from "../store.js";
 import { ConfirmSheet, Icon, Segmented, Sheet, toast } from "../ui.jsx";
 import { getTheme, setTheme } from "../theme.js";
+import { WeighInSummary } from "../weighin.jsx";
 
 /* ---------- weight ---------- */
 
@@ -18,17 +19,24 @@ export function WeightSheet({ onClose, existing = null }) {
   const [kg, setKg] = useState(existing ? String(existing.kg) : lw ? String(lw.kg) : "");
   const v = parseFloat(kg);
   const valid = v >= 30 && v <= 300 && date <= today;
+  const [savedDate, setSavedDate] = useState(null); // after saving, the sheet shows the weigh-in summary
   const save = async () => {
     try {
       await mutate((d) => {
         d.weights = [...d.weights.filter((w) => w.date !== date && w.date !== existing?.date), { date, kg: round1(v) }];
       });
-      toast("המשקל עודכן");
-      onClose();
+      setSavedDate(date);
     } catch (e) {
       toast(e.message);
     }
   };
+  if (savedDate) {
+    return (
+      <Sheet title="השקילה נשמרה" onClose={onClose} start={<span />} end={<button className="link" style={{ fontWeight: 600 }} onClick={onClose}>סיום</button>}>
+        <WeighInSummary data={data} date={savedDate} onInsights={() => { onClose(); location.hash = "insights"; }} />
+      </Sheet>
+    );
+  }
   return (
     <Sheet title={existing ? "שקילה" : "עדכון משקל"} onClose={onClose} end={<button className="link" style={{ fontWeight: 600 }} disabled={!valid} onClick={save}>שמירה</button>}>
       <div className="stack">
@@ -121,8 +129,8 @@ export default function Settings({ storageKind }) {
       <h1 className="large-title">{onboarding ? "ברוכים הבאים למאנץ׳" : "הגדרות"}</h1>
       <p className="subtitle">{onboarding ? "כמה פרטים, ונחשב לכם יעד קלורי יומי." : "שינוי פרטים או יעד מעדכן את היעדים מהיום והלאה. ימים קודמים לא משתנים."}</p>
 
-      {!onboarding && <DisplaySection />}
-
+      {onboarding ? (
+        <>
       <div className="section-head"><h2 className="section-title">פרופיל</h2></div>
       <div className="group">
         <label className="cell"><span className="grow">שם</span><input id="s-name" className="inline" value={f.name} placeholder="לא חובה" onChange={(e) => set("name", e.target.value)} /></label>
@@ -210,14 +218,103 @@ export default function Settings({ storageKind }) {
         <div className="group"><div className="empty" style={{ padding: 18 }}>{problems.join(" · ")}</div></div>
       )}
 
-      {dirty && (
-        <button className="btn filled block" style={{ marginTop: 16 }} disabled={!canSave || saving} onClick={save}>
-          {onboarding ? "התחלה" : "שמירת השינויים"}
-        </button>
+          <button className="btn filled block" style={{ marginTop: 16 }} disabled={!canSave || saving} onClick={save}>התחלה</button>
+        </>
+      ) : (
+        <>
+      <div className="section-head"><h2 className="section-title">משקל</h2></div>
+      <div className="group">
+        {onboarding ? (
+          <label className="cell"><span className="grow">משקל נוכחי</span><input id="s-weight" className="inline num" type="number" inputMode="decimal" step="0.1" placeholder="ק״ג" value={f.weightKg} onChange={(e) => set("weightKg", e.target.value)} style={{ width: "5em" }} /><span className="sublabel">ק״ג</span></label>
+        ) : (
+          <>
+            <button className="cell tap" onClick={() => setWeighIn(true)}>
+              <span className="grow">משקל נוכחי<div className="sublabel">עודכן {lw ? fmtDate(lw.date) : "–"}</div></span>
+              <span className="value num">{fmt(lw?.kg, 1)} ק״ג</span>
+              <Icon.chev className="chev" />
+            </button>
+            {(allWeights ? weightsDesc : weightsDesc.slice(0, 3)).map((w) => (
+              <button key={w.date} className="cell tap" onClick={() => setEditWeight(w)}>
+                <span className="grow sublabel" style={{ fontSize: 15 }}>{fmtDate(w.date, true)}</span>
+                <span className="value num">{fmt(w.kg, 1)}</span>
+                <Icon.chev className="chev" />
+              </button>
+            ))}
+            {weightsDesc.length > 3 && <button className="cell tap" style={{ color: "var(--tint)" }} onClick={() => setAllWeights(!allWeights)}>{allWeights ? "פחות" : `כל השקילות (${weightsDesc.length})`}</button>}
+          </>
+        )}
+      </div>
+
+      <div className="section-head"><h2 className="section-title">היעד</h2></div>
+      <div className="group">
+        <label className="cell"><span className="grow">משקל יעד</span><input id="s-target" className="inline num" type="number" inputMode="decimal" step="0.1" placeholder="ק״ג" value={f.targetWeightKg} onChange={(e) => set("targetWeightKg", e.target.value)} style={{ width: "5em" }} /><span className="sublabel">ק״ג</span></label>
+        <label className="cell"><span className="grow">ירידה בשבוע</span><input id="s-rate" className="inline num" type="number" inputMode="decimal" step="0.05" value={f.weeklyLossKg} onChange={(e) => set("weeklyLossKg", e.target.value)} style={{ width: "5em" }} /><span className="sublabel">ק״ג</span></label>
+        <div className="cell" style={{ display: "grid", gap: 10 }}>
+          <span>ימים עם צריכה גבוהה יותר</span>
+          <div className="chips" role="group" aria-label="ימים מוגברים">
+            {DAY_SHORT.map((d, i) => (
+              <button key={i} className="chip" aria-pressed={f.highDays.includes(i)} aria-label={DAY_NAMES[i]} style={{ minWidth: 40 }}
+                onClick={() => set("highDays", f.highDays.includes(i) ? f.highDays.filter((x) => x !== i) : [...f.highDays, i])}>{d}</button>
+            ))}
+          </div>
+        </div>
+        <label className="cell"><span className="grow">תוספת לימים מוגברים</span><input id="s-boost" className="inline num" type="number" inputMode="numeric" value={f.highBoostPct} onChange={(e) => set("highBoostPct", e.target.value)} style={{ width: "4em" }} /><span className="sublabel">%</span></label>
+        <label className="cell"><span className="grow">מינימום יומי<div className="sublabel">היעד היומי לא יורד מתחת לזה</div></span><input id="s-min" className="inline num" type="number" inputMode="numeric" placeholder={String(minDefault)} value={f.minCalories} onChange={(e) => set("minCalories", e.target.value)} style={{ width: "5em" }} /><span className="sublabel">קק״ל</span></label>
+      </div>
+      <p className="footnote">השבוע מתחיל ביום ראשון. הימים המוגברים מקבלים יותר, ושאר הימים מעט פחות, כך שסך השבוע נשאר זהה.</p>
+
+      <div className="section-head"><h2 className="section-title">החישוב</h2></div>
+      {plan ? (
+        <>
+          <div className="group">
+            <div className="cell"><span className="grow">חילוף חומרים במנוחה</span><span className="value num">{fmt(plan.bmr)} קק״ל</span></div>
+            <div className="cell"><span className="grow">הוצאה יומית משוערת</span><span className="value num">{fmt(plan.tdee)} קק״ל</span></div>
+            <div className="cell"><span className="grow">ממוצע יומי מותר</span><span className="value num" style={{ color: "var(--label)", fontWeight: 600 }}>{fmt(plan.base)} קק״ל</span></div>
+            {parsed.highDays.length > 0 && parsed.highDays.length < 7 && (
+              <>
+                <div className="cell"><span className="grow">יום רגיל</span><span className="value num">{fmt(plan.regular)} קק״ל</span></div>
+                <div className="cell"><span className="grow">יום מוגבר</span><span className="value num">{fmt(plan.high)} קק״ל</span></div>
+              </>
+            )}
+            {weeksToGoal != null && <div className="cell"><span className="grow">הגעה ליעד לפי התוכנית</span><span className="value">{fmtDate(addDays(today, Math.round(weeksToGoal * 7)), true)}</span></div>}
+          </div>
+          {tooFast ? (
+            <div className="alert error" style={{ marginTop: 10 }}>
+              <span className="title">הקצב גבוה מדי</span>
+              כדי לרדת {fmt(parsed.weeklyLossKg, 2)} ק״ג בשבוע, היום הנמוך בשבוע יצטרך {fmt(plan.lowest)} קק״ל, פחות מהמינימום ({fmt(parsed.minCalories)}). הקצב המרבי עם ההגדרות האלה: <b>{fmt(Math.floor(plan.maxWeeklyLossKg * 20) / 20, 2)} ק״ג בשבוע</b>.
+            </div>
+          ) : (
+            <p className="footnote">ירידה של {fmt(parsed.weeklyLossKg, 2)} ק״ג בשבוע = גירעון של כ-{fmt((parsed.weeklyLossKg * KCAL_PER_KG) / 7)} קק״ל ביום. החישוב לפי נוסחת Mifflin-St Jeor.</p>
+          )}
+        </>
+      ) : (
+        <div className="group"><div className="empty" style={{ padding: 18 }}>{problems.join(" · ")}</div></div>
       )}
 
-      {!onboarding && (
-        <>
+          <DisplaySection />
+      <div className="section-head"><h2 className="section-title">פרופיל</h2></div>
+      <div className="group">
+        <label className="cell"><span className="grow">שם</span><input id="s-name" className="inline" value={f.name} placeholder="לא חובה" onChange={(e) => set("name", e.target.value)} /></label>
+      </div>
+
+      <div className="section-head"><h2 className="section-title">פרטים אישיים</h2></div>
+      <div className="group">
+        <div className="cell"><span className="grow">מין</span><div style={{ width: 150 }}><Segmented label="מין" options={[["female", "אישה"], ["male", "גבר"]]} value={f.sex} onChange={(v) => set("sex", v)} /></div></div>
+        <label className="cell"><span className="grow">תאריך לידה</span><input id="s-birth" className="inline" type="date" max={today} value={f.birthDate} onChange={(e) => set("birthDate", e.target.value)} />{f.birthDate && <span className="sublabel num">({ageAt(f.birthDate, today)})</span>}</label>
+        <label className="cell"><span className="grow">גובה</span><input id="s-height" className="inline num" type="number" inputMode="numeric" placeholder="ס״מ" value={f.heightCm} onChange={(e) => set("heightCm", e.target.value)} style={{ width: "5em" }} /><span className="sublabel">ס״מ</span></label>
+        <label className="cell">
+          <span className="grow">רמת פעילות<div className="sublabel">{ACTIVITY[f.activity]?.hint}</div></span>
+          <select id="s-activity" className="inline" value={f.activity} onChange={(e) => set("activity", e.target.value)}>
+            {Object.entries(ACTIVITY).map(([k, a]) => <option key={k} value={k}>{a.label}</option>)}
+          </select>
+        </label>
+      </div>
+
+          {dirty && (
+            <div className="savebar">
+              <button className="btn filled block" disabled={!canSave || saving} onClick={save}>שמירת השינויים</button>
+            </div>
+          )}
           <PortionSizes />
           <FoodLibrary />
           <Backup storageKind={storageKind} />

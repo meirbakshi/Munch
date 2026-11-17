@@ -4,12 +4,13 @@ import { currentSettings, todayISO } from "./calc.js";
 import Daily from "./pages/Daily.jsx";
 import History from "./pages/History.jsx";
 import Settings from "./pages/Settings.jsx";
+import Insights from "./pages/Insights.jsx";
 import { init, useStore } from "./store.js";
 import { Icon, ToastHost } from "./ui.jsx";
 import { syncThemeFromData } from "./theme.js";
 
 // Hash routes. "settings" is reserved by claude.ai, so the settings page is "#prefs".
-const ROUTES = ["log", "progress", "prefs"];
+const ROUTES = ["log", "progress", "insights", "prefs"];
 // the page content scrolls inside this element, so the tab bar under it never moves
 const scroller = () => document.getElementById("scroller");
 const readRoute = () => {
@@ -70,6 +71,7 @@ export default function App() {
         {store.kind === "local" && <div className="alert warn" style={{ margin: "8px 0" }}>הנתונים נשמרים כרגע רק בדפדפן הזה. כדי לשמור אותם בחשבון ולסנכרן בין מכשירים, פתחו את האפליקציה ב-claude.ai כשאתם מחוברים.</div>}
         {page === "log" && <Daily date={date} setDate={setDate} aiReady={aiReady} />}
         {page === "progress" && <History openDay={(d) => { setDate(d); go("log"); }} />}
+        {page === "insights" && <Insights aiReady={aiReady} />}
         {page === "prefs" && <Settings key={onboarded ? "s" : "o"} storageKind={store.kind} />}
       </main>
       </div>
@@ -78,6 +80,7 @@ export default function App() {
           <nav aria-label="ניווט">
             <a href="#log" aria-current={page === "log" ? "page" : undefined} onClick={(e) => { e.preventDefault(); if (page === "log") setDate(todayISO()); go("log"); }}><Icon.log />יומן</a>
             <a href="#progress" aria-current={page === "progress" ? "page" : undefined} onClick={(e) => { e.preventDefault(); go("progress"); }}><Icon.chart />התקדמות</a>
+            <a href="#insights" aria-current={page === "insights" ? "page" : undefined} onClick={(e) => { e.preventDefault(); go("insights"); }}><Icon.bulb />תובנות</a>
             <a href="#prefs" aria-current={page === "prefs" ? "page" : undefined} onClick={(e) => { e.preventDefault(); go("prefs"); }}><Icon.gear />הגדרות</a>
           </nav>
         </div>

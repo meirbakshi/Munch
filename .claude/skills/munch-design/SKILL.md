@@ -19,7 +19,7 @@ Everything visual lives in `munch-app/src/styles.css` (tokens at the top) and th
 - **8-pt grid.** Spacing is 4, 8, 12, 16, 20, 24, 32. Side margins are 16 pt (inset grouped lists use 16 pt outside and 16 pt inside).
 - **Safe areas.** The content clears the Dynamic Island and the home indicator: the top uses `env(safe-area-inset-top)` and fixed bars add `env(safe-area-inset-bottom)`. Never put a control within 8 pt of the screen's corners.
 - **Touch targets** are at least 44 × 44 pt, even when the visible glyph is smaller.
-- **Navigation.** There's one tab bar with 3 tabs (49 pt plus the bottom inset) on a translucent material, with an icon above a 10-pt label. The selected tab uses the tint, and the others use secondary label color. Never hide the tab bar except in sheets.
+- **Navigation.** There's one tab bar with 4 tabs: יומן, התקדמות, תובנות, הגדרות (49 pt plus the bottom inset) on a translucent material, with an icon above a 10-pt label. The selected tab uses the tint, and the others use secondary label color. Never hide the tab bar except in sheets.
 - **Page header.** A large title (34 pt bold) scrolls with the content. Put controls in a 44-pt row above it (iOS puts nav-bar buttons there).
 - **Grouped lists** are the default container. Cells are at least 44 pt tall with a 10–12 pt radius on the group. Separators are 0.5 pt and inset from the leading edge (the right edge in RTL). Section headers are 13 pt in secondary color, and footers are 13 pt in secondary color under the group.
 - **Hierarchy comes from grouping and type, not boxes.** Don't put cards inside cards, and don't put shadows on list content. Use a shadow only on floating elements (a segmented control's thumb, a toast, a popover).
