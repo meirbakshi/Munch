@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   addDays, computeDays, currentSettings, daysBetween, expectedWeights, firstWeight, fmt, fmtDate, latestWeight,
-  macroShares, parseISO, startDate, todayISO, weightAt,
+  macroShares, parseISO, startDate, todayISO, weighIn, weightAt,
 } from "../calc.js";
 import { useStore } from "../store.js";
 import { CaloriesChart, Icon, LineChart, MacroChart, Segmented, Sheet } from "../ui.jsx";
@@ -35,8 +35,8 @@ export default function History({ openDay }) {
   const toGo = lw ? lw.kg - s.targetWeightKg : 0;
   const expNow = expected.get(today);
 
-  // when the plan reaches the target, going on from the current weight at the planned rate
-  const planEta = s.weeklyLossKg > 0 && toGo > 0 ? addDays(today, Math.ceil((toGo / s.weeklyLossKg) * 7)) : null;
+  // when the plan reaches the target, going on from the latest weigh-in at the planned rate (updates with each weigh-in)
+  const planEta = lw ? weighIn(data, lw.date)?.eta ?? null : null;
   const logged = days.filter((d) => d.logged && d.date < today);
   const avgEaten = logged.length ? logged.reduce((a, d) => a + d.eaten, 0) / logged.length : null;
   const avgFood = logged.length ? logged.reduce((a, d) => a + d.food, 0) / logged.length : null;

@@ -170,17 +170,22 @@ export function computeDays(data, until) {
 }
 
 /**
- * Where your weight "should" be from what you logged: starting weight minus the
- * energy deficit so far / 7,700. Days with nothing logged count as on target.
- * Returns a Map date -> expected kg at the start of that day.
+ * Where your weight "should" be from what you logged: the last weigh-in minus the energy
+ * deficit logged since / 7,700. Every weigh-in resets the prediction to the real weight.
+ * Days with nothing logged count as on target.
+ * Returns a Map date -> expected kg at the start of that day. On a weigh-in day the value is
+ * still the prediction from the previous weigh-in, so the two can be compared; the reset
+ * applies from that day on (a weigh-in counts as taken in the morning, before eating).
  */
 export function expectedWeights(data, days) {
   const w0 = firstWeight(data);
   const out = new Map();
   if (!w0) return out;
+  const byDate = new Map(data.weights.map((w) => [w.date, w.kg]));
   let kg = w0.kg;
   for (const [d, day] of days) {
     out.set(d, kg);
+    if (byDate.has(d)) kg = byDate.get(d);
     const intake = day.logged ? day.eaten : day.target;
     kg -= (day.tdee - intake) / KCAL_PER_KG;
   }
