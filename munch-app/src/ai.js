@@ -47,16 +47,16 @@ How to work:
       - Use it when the text names the same specific dish or product (e.g. "מג׳דרה" → their "מג׳דרה, כוס אחת"; "פשטידת זיתים" → their olive quiche; a brand + product that matches).
       - Do NOT use it for a broad category that comes in many versions (salad, pizza, sandwich, toast, pasta, soup, cake, shakshuka, omelette, smoothie, bowl, wrap...) unless the user names the same specific variety as the library item ("פיצה מעדנות" yes; just "פיצה" no; "סלט" no).
       - Do NOT use it when the user describes what this serving contained (ingredients, toppings, cooking method) and that differs from, or isn't evidently, the saved item. Calculate it from the described components instead (each component by the same priority), and name the item by what was described (e.g. "סלט עגבניות, מלפפון ובצל עם כף שמן זית").
-      - A generic name with no details and no specific library match: use a typical Israeli version ("reference" or "web") and state the assumption in sourceNote.
+      - A generic name with no details and no specific library match: search online for a typical Israeli version ("web"; "reference" only as the last resort below) and state the assumption in sourceNote.
       When unsure, don't use the library item, and mention the closest saved item in notes so the user can ask for it.
-   c. "web": ONLY after search_my_foods found no item the user clearly means, search online with web_search. Do it ALWAYS when a specific brand or product is mentioned (e.g. תנובה, שטראוס, יטבתה, אסם, עלית, טרה, מולר, דנונה, a restaurant chain) and when you are not confident of the values. Prefer Israeli sources: the manufacturer's site, foodsdictionary.co.il, Open Food Facts Israel, the Ministry of Health database. Use per-100 g values and scale them.
-   d. "reference": for plain generic foods (an apple, an egg, white rice, olive oil) standard values are fine without searching (Israeli Ministry of Health / USDA).
+   c. "web": for EVERY food that search_my_foods has no item for that the user clearly means, search online with web_search, generic foods included (an apple, an egg, white rice, a restaurant dish). Search per food (one call per food, 1-3 queries). Prefer Israeli sources: the manufacturer's site, foodsdictionary.co.il, Open Food Facts Israel, the Ministry of Health database (also on israel.com/calories). Use per-100 g values and scale them. If the first search finds nothing usable, try once more with other words (Hebrew and English).
+   d. "reference": a LAST resort, only when web_search returned nothing similar enough to the food after you tried, or web search is unavailable. Use standard values (Israeli Ministry of Health / USDA) and say in sourceNote that nothing was found online.
 3. All values are for the full amount eaten: calories (kcal), carbs, protein, fat, fiber (grams). "carbs" excludes dietary fiber when the source separates them, as Israeli labels do. Round calories to whole numbers and grams to one decimal.
 4. Changes to what was already logged: the day's current log is given with refs (e1, e2, ...). If the user says something was wrong, eaten in a different amount, or should be removed, put it in "update" (with the ref and the full corrected item) or "delete" (the ref). Only touch logged items the user referred to. If the user's message only adds foods, leave update and delete empty.
 5. Library changes ("library"): keep the user's list of foods and recipes useful.
    - "add" a new item when the user gives nutrition values for a named food, describes a recipe of their own (ingredients and amounts → compute per-serving values), and for EVERY food whose values you took from web_search (source "web"), with the same name you used in "add", so it is found in the list next time.
    - "update" an existing library item (use its id from search_my_foods) when the user corrects its values or says its serving/recipe changed.
-   - Do not add generic foods you took from "reference" (an apple, an egg) and do not duplicate an item that already exists.
+   - Do not add items whose values came from "reference", and do not duplicate an item that already exists.
    Library items are per serving: servingAmount + servingUnit (e.g. 100 גרם, 1 יחידה), plus servingGrams when known.
 6. Names, units, sourceNote and notes in Hebrew. sourceNote: short, where the numbers came from and any assumption (e.g. "לפי אתר תנובה: 95 קק״ל ל-100 גרם", "הנחתי מלפפון בינוני, 100 גרם"). notes: one short sentence on anything the user should check, or "".
 7a. Portion definitions: when the user tells you how big one of their portions is ("אצלי כוס זה 200 מ״ל", "מעכשיו פרוסה = 25 גרם", "הכוס שלי 200 מ״ל ולא 250"), add it to "portions" as {"term": the portion word in Hebrew, "value": its size in Hebrew, e.g. "200 מ״ל"} so it is saved and used from now on, AND apply it to this message's items. A definition that changes a saved one replaces it.
@@ -68,7 +68,7 @@ How to work:
    - Changes to already-logged exercise use exerciseUpdate (ref x1, x2, ... with the full corrected item) and exerciseDelete (refs).
 
 Reply with ONLY one JSON object, no other text (empty arrays where nothing applies):
-{"add":[{"name":"","amount":0,"unit":"","grams":null,"meal":"breakfast","calories":0,"carbs":0,"protein":0,"fat":0,"fiber":0,"source":"reference","sourceNote":""}],
+{"add":[{"name":"","amount":0,"unit":"","grams":null,"meal":"breakfast","calories":0,"carbs":0,"protein":0,"fat":0,"fiber":0,"source":"web","sourceNote":""}],
  "update":[{"ref":"e1","name":"","amount":0,"unit":"","grams":null,"meal":"lunch","calories":0,"carbs":0,"protein":0,"fat":0,"fiber":0,"source":"user","sourceNote":""}],
  "delete":["e2"],
  "library":[{"action":"add","id":null,"name":"","brand":"","servingAmount":100,"servingUnit":"גרם","servingGrams":100,"calories":0,"carbs":0,"protein":0,"fat":0,"fiber":0}],
@@ -167,6 +167,7 @@ export async function analyzeLog({ text, date, dayEntries, dayExercises = [], we
   let mcp = await getMcp();
   let searchProblem = "";
   let librarySearched = false;
+  let webSearches = 0;
   if (mcp) {
     const st = await searchPermission();
     if (st === "denied") { mcp = null; searchProblem = "החיפוש ברשת כבוי לאפליקציה. אפשר להפעיל אותו בתפריט ההרשאות של הדף ב-claude.ai."; }
@@ -232,6 +233,7 @@ export async function analyzeLog({ text, date, dayEntries, dayExercises = [], we
             await wait(Math.min(e.retryAfterMs || 1500 + Math.random() * 1000, 8000), ctx?.signal);
           }
         }
+        if (!err) webSearches++;
         if (err) {
           if (err.code === "cancelled") throw err;
           searchProblem = searchErrorText(err.code);
@@ -300,6 +302,18 @@ ${text}
   try {
     try {
       raw = await sample.json(prompt, { tools, signal });
+      // standard values are the last resort: if some were used without any online search, ask once to search first
+      const guessed = mcp && !searchProblem && !webSearches && raw && typeof raw === "object"
+        ? [...(raw.add || []), ...(raw.update || [])].filter((it) => it?.source === "reference").map((it) => String(it.name || "")).filter(Boolean)
+        : [];
+      if (guessed.length) {
+        onStep?.("מחפש ברשת את מה שלא נמצא ברשימה…");
+        raw = await sample.json([
+          { role: "user", content: prompt },
+          { role: "assistant", content: JSON.stringify(raw) },
+          { role: "user", content: `You used standard ("reference") values for: ${guessed.join(", ")}, without searching online. Search online with web_search for each of them first (they were not in my list), use what you find ("web"), and keep "reference" only for a food the search found nothing similar for. Reply with the COMPLETE JSON again.` },
+        ], { tools, signal });
+      }
     } catch (e) {
       // a view that can't run page tools: try once more without them, from general knowledge
       if (e?.code !== "tools_unavailable") throw e;
