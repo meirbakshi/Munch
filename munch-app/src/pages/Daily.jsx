@@ -396,7 +396,7 @@ function SourceBadges({ item, saved }) {
   return (
     <>
       {label && <span className={`badge ${item.source === "web" || item.source === "library" ? "web" : ""}`}>{label}</span>}
-      {(item.source === "web" || item.source === "composed") && saved.has(norm(item.name)) && <span className="badge add">נשמר ברשימה</span>}
+      {(item.source === "web" || item.source === "composed") && saved.has(norm(item.name)) && <span className="badge add">נוסף לרשימה</span>}
     </>
   );
 }
