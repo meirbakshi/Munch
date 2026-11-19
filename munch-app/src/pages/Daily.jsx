@@ -390,13 +390,13 @@ function Composer({ date, entries, exercises, weightKg, foods, portions, aiReady
 /* ---------- the review pop-up ---------- */
 
 /** Where an item's values came from, and whether it was just saved to the user's list. */
-const SOURCE_BADGES = { library: "מהרשימה שלך", web: "מהרשת", user: "כתבת", reference: "ערך מקובל", manual: "ידני" };
+const SOURCE_BADGES = { library: "מהרשימה שלך", web: "מהרשת", composed: "מחושב מרכיבים", user: "כתבת", reference: "ערך מקובל", manual: "ידני" };
 function SourceBadges({ item, saved }) {
   const label = SOURCE_BADGES[item.source];
   return (
     <>
       {label && <span className={`badge ${item.source === "web" || item.source === "library" ? "web" : ""}`}>{label}</span>}
-      {item.source === "web" && saved.has(norm(item.name)) && <span className="badge add">נשמר ברשימה</span>}
+      {(item.source === "web" || item.source === "composed") && saved.has(norm(item.name)) && <span className="badge add">נשמר ברשימה</span>}
     </>
   );
 }

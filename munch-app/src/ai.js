@@ -41,20 +41,26 @@ const INSTRUCTIONS = `You are the logging engine of a personal calorie tracker u
 
 How to work:
 1. Split the message into individual foods and drinks with the amount eaten. When no amount is given, assume one typical ISRAELI serving and say so in sourceNote. Use Israeli sizes, not American ones. Typical references: medium cucumber ≈ 100 g, medium tomato ≈ 120 g, medium apple ≈ 150 g, banana ≈ 120 g (peeled), egg (L) ≈ 55 g without shell, slice of bread ≈ 30 g, pita ≈ 90 g, laffa ≈ 120 g, schnitzel ≈ 130 g, portion of hummus in a restaurant ≈ 200 g, tablespoon of oil ≈ 13 g, tablespoon of raw tahini ≈ 15 g, cup = 240 ml, tablespoon = 15 ml, teaspoon = 5 ml, "קופסה" of cottage/white cheese = 250 g, Israeli yogurt cup ≈ 150–200 g (check the product). The user's own portion definitions (listed below the instructions) ALWAYS override these defaults.
-2. For each food pick nutrition values by this priority, and record which one you used in "source":
+2. For each food or dish pick nutrition values by this priority, and record which one you used in "source":
    a. "user": the user wrote the nutrition values in the message. Use exactly what they wrote and fill in only what's missing.
    b. "library": the user's own list of custom foods and recipes. Call search_my_foods for every food (retry with a shorter or alternative Hebrew name if nothing matches), then be SELECTIVE: use a library item only when the user clearly means THAT specific item.
       - Use it when the text names the same specific dish or product (e.g. "מג׳דרה" → their "מג׳דרה, כוס אחת"; "פשטידת זיתים" → their olive quiche; a brand + product that matches).
       - Do NOT use it for a broad category that comes in many versions (salad, pizza, sandwich, toast, pasta, soup, cake, shakshuka, omelette, smoothie, bowl, wrap...) unless the user names the same specific variety as the library item ("פיצה מעדנות" yes; just "פיצה" no; "סלט" no).
-      - Do NOT use it when the user describes what this serving contained (ingredients, toppings, cooking method) and that differs from, or isn't evidently, the saved item. Calculate it from the described components instead (each component by the same priority), and name the item by what was described (e.g. "סלט עגבניות, מלפפון ובצל עם כף שמן זית").
+      - Do NOT use it when the user describes what this serving contained (ingredients, toppings, cooking method) and that differs from, or isn't evidently, the saved item. Then look for the dish as described online (c), and if it isn't found, compose it (d). Name the item by what was described (e.g. "סלט עגבניות, מלפפון ובצל עם כף שמן זית").
       - A generic name with no details and no specific library match: search online for a typical Israeli version ("web"; "reference" only as the last resort below) and state the assumption in sourceNote.
       When unsure, don't use the library item, and mention the closest saved item in notes so the user can ask for it.
    c. "web": for EVERY food that search_my_foods has no item for that the user clearly means, search online with web_search, generic foods included (an apple, an egg, white rice, a restaurant dish). Search per food (one call per food, 1-3 queries). Prefer Israeli sources: the manufacturer's site, foodsdictionary.co.il, Open Food Facts Israel, the Ministry of Health database (also on israel.com/calories). Use per-100 g values and scale them. If the first search finds nothing usable, try once more with other words (Hebrew and English).
-   d. "reference": a LAST resort, only when web_search returned nothing similar enough to the food after you tried, or web search is unavailable. Use standard values (Israeli Ministry of Health / USDA) and say in sourceNote that nothing was found online.
+   d. "composed": a dish made of several components (the user lists them, e.g. "40 גרם עלי תרד מוקפצים בחמאה, שום וגבינת שמנת", or it is evidently a combination, e.g. "פוקצ׳ה עם אנטי פסטי") whose WHOLE was not found in the list (b) nor online (c) as the same dish or close enough. Then:
+      - Split it into its components (spinach, butter, garlic, cream cheese; focaccia, antipasti).
+      - Give each component an amount: what the user described first; otherwise a typical amount for this dish. When the user gave the dish's total weight or size, the components must add up to it (40 g of spinach in butter, garlic and cream cheese ≈ 30 g spinach, 5 g butter, 3 g cream cheese, 2 g garlic).
+      - Find each component's values by the same order: search_my_foods, then web_search, then "reference" as the last resort.
+      - The dish's values are the sum of its components. Log the dish as ONE item, and list the components in its "components" array: [{"name","amount","unit","grams","calories","carbs","protein","fat","fiber","source","per100g"}] with source library, web or reference, each for the amount used; for a "web" component also give "per100g": {"calories","carbs","protein","fat","fiber"} as found online.
+      - sourceNote: the breakdown, short, e.g. "30 ג׳ תרד (מהרשת) · 5 ג׳ חמאה (מהרשימה) · 3 ג׳ גבינת שמנת (מהרשת) · 2 ג׳ שום".
+   e. "reference": a LAST resort, only when web_search returned nothing similar enough to the food after you tried, or web search is unavailable. Use standard values (Israeli Ministry of Health / USDA) and say in sourceNote that nothing was found online.
 3. All values are for the full amount eaten: calories (kcal), carbs, protein, fat, fiber (grams). "carbs" excludes dietary fiber when the source separates them, as Israeli labels do. Round calories to whole numbers and grams to one decimal.
 4. Changes to what was already logged: the day's current log is given with refs (e1, e2, ...). If the user says something was wrong, eaten in a different amount, or should be removed, put it in "update" (with the ref and the full corrected item) or "delete" (the ref). Only touch logged items the user referred to. If the user's message only adds foods, leave update and delete empty.
 5. Library changes ("library"): keep the user's list of foods and recipes useful.
-   - "add" a new item when the user gives nutrition values for a named food, describes a recipe of their own (ingredients and amounts → compute per-serving values), and for EVERY food whose values you took from web_search (source "web"), with the same name you used in "add", so it is found in the list next time.
+   - "add" a new item when the user gives nutrition values for a named food, describes a recipe of their own (ingredients and amounts → compute per-serving values), and for EVERY food whose values you took from web_search (source "web"), with the same name you used in "add", so it is found in the list next time. Also add every "composed" dish as a recipe ("kind":"recipe", per the amount eaten), and each of its components whose values came from the web (per 100 g when the weight is known).
    - "update" an existing library item (use its id from search_my_foods) when the user corrects its values or says its serving/recipe changed.
    - Do not add items whose values came from "reference", and do not duplicate an item that already exists.
    Library items are per serving: servingAmount + servingUnit (e.g. 100 גרם, 1 יחידה), plus servingGrams when known.
@@ -71,13 +77,13 @@ Reply with ONLY one JSON object, no other text (empty arrays where nothing appli
 {"add":[{"name":"","amount":0,"unit":"","grams":null,"meal":"breakfast","calories":0,"carbs":0,"protein":0,"fat":0,"fiber":0,"source":"web","sourceNote":""}],
  "update":[{"ref":"e1","name":"","amount":0,"unit":"","grams":null,"meal":"lunch","calories":0,"carbs":0,"protein":0,"fat":0,"fiber":0,"source":"user","sourceNote":""}],
  "delete":["e2"],
- "library":[{"action":"add","id":null,"name":"","brand":"","servingAmount":100,"servingUnit":"גרם","servingGrams":100,"calories":0,"carbs":0,"protein":0,"fat":0,"fiber":0}],
+ "library":[{"action":"add","id":null,"kind":"food","name":"","brand":"","servingAmount":100,"servingUnit":"גרם","servingGrams":100,"calories":0,"carbs":0,"protein":0,"fat":0,"fiber":0}],
  "exercise":[{"name":"הליכה מהירה","minutes":45,"calories":0,"source":"estimate","note":""}],
  "exerciseUpdate":[{"ref":"x1","name":"","minutes":30,"calories":0,"source":"user","note":""}],
  "exerciseDelete":["x2"],
  "portions":[{"term":"כוס","value":"200 מ״ל"}],
  "notes":""}
-meal is one of breakfast, lunch, dinner, snack. source is one of user, library, web, reference.`;
+meal is one of breakfast, lunch, dinner, snack. source is one of user, library, web, composed, reference.`;
 
 /* ---------- validating the answer ---------- */
 
@@ -86,7 +92,7 @@ const num = (v) => {
   return isFinite(n) && n >= 0 ? n : 0;
 };
 const str = (v) => (typeof v === "string" ? v.trim() : "");
-const SOURCES = ["user", "library", "web", "reference"];
+const SOURCES = ["user", "library", "web", "composed", "reference"];
 const cleanItem = (it, fallbackMeal) => ({
   name: str(it.name),
   amount: num(it.amount) || 1,
@@ -101,6 +107,14 @@ const cleanItem = (it, fallbackMeal) => ({
   source: SOURCES.includes(it.source) ? it.source : "reference",
   sourceNote: str(it.sourceNote),
 });
+
+/** A composed dish's components, as the model listed them (kept out of the logged entry). */
+const cleanComponents = (list) => (Array.isArray(list) ? list : []).map((c) => ({
+  name: str(c?.name), amount: num(c?.amount) || 1, unit: str(c?.unit) || "גרם", grams: c?.grams == null ? null : num(c.grams) || null,
+  calories: Math.round(num(c?.calories)), carbs: round1(num(c?.carbs)), protein: round1(num(c?.protein)), fat: round1(num(c?.fat)), fiber: round1(num(c?.fiber)),
+  source: ["library", "web", "reference"].includes(c?.source) ? c.source : "reference",
+  per100g: c?.per100g && typeof c.per100g === "object" && num(c.per100g.calories) > 0 ? c.per100g : null,
+})).filter((c) => c.name);
 
 /* ---------- the call ---------- */
 
@@ -304,7 +318,8 @@ ${text}
       raw = await sample.json(prompt, { tools, signal });
       // standard values are the last resort: if some were used without any online search, ask once to search first
       const guessed = mcp && !searchProblem && !webSearches && raw && typeof raw === "object"
-        ? [...(raw.add || []), ...(raw.update || [])].filter((it) => it?.source === "reference").map((it) => String(it.name || "")).filter(Boolean)
+        ? [...(raw.add || []), ...(raw.update || []), ...[...(raw.add || []), ...(raw.update || [])].flatMap((it) => (Array.isArray(it?.components) ? it.components : []))]
+            .filter((it) => it?.source === "reference").map((it) => String(it.name || "")).filter(Boolean)
         : [];
       if (guessed.length) {
         onStep?.("מחפש ברשת את מה שלא נמצא ברשימה…");
@@ -327,15 +342,17 @@ ${text}
   }
   if (!raw || typeof raw !== "object") throw new Error(ERRORS.invalid_json);
 
-  const add = (raw.add || []).map((it) => cleanItem(it, defaultMeal)).filter((it) => it.name);
+  const components = new Map(); // logged item → its components
+  const add = (raw.add || []).map((r) => { const it = cleanItem(r, defaultMeal); components.set(it, cleanComponents(r.components)); return it; }).filter((it) => it.name);
   const update = (raw.update || [])
-    .map((it) => ({ id: refs.get(String(it.ref)), ...cleanItem(it, defaultMeal) }))
+    .map((r) => { const it = { id: refs.get(String(r.ref)), ...cleanItem(r, defaultMeal) }; components.set(it, cleanComponents(r.components)); return it; })
     .filter((it) => it.id && it.name);
   const del = (raw.delete || []).map((r) => refs.get(String(r))).filter(Boolean);
   const library = (raw.library || [])
     .map((l) => ({
       action: l.action === "update" && foods.some((f) => f.id === l.id) ? "update" : "add",
       id: l.action === "update" ? l.id : null,
+      ...(l.kind === "recipe" ? { kind: "recipe" } : {}),
       name: str(l.name),
       brand: str(l.brand),
       servingAmount: num(l.servingAmount) || 1,
@@ -350,14 +367,30 @@ ${text}
     .filter((l) => l.name);
   // every food whose values came from the web is saved to the user's list (unless it's already there)
   const listed = new Set([...foods.map((f) => norm(f.name)), ...library.filter((l) => l.action === "add").map((l) => norm(l.name))]);
-  for (const it of [...add, ...update]) {
-    if (it.source !== "web" || listed.has(norm(it.name))) continue;
+  const keep = (it, kind) => {
+    if (listed.has(norm(it.name))) return;
     listed.add(norm(it.name));
+    const base = { action: "add", id: null, kind, name: it.name, brand: "" };
+    const p = it.per100g;
+    if (p) { // the values found online, per 100 g
+      library.push({ ...base, servingAmount: 100, servingUnit: "גרם", servingGrams: 100,
+        calories: Math.round(num(p.calories)), carbs: round1(num(p.carbs)), protein: round1(num(p.protein)), fat: round1(num(p.fat)), fiber: round1(num(p.fiber)) });
+      return;
+    }
+    // per 100 g when the weight is known and large enough to scale accurately, otherwise per the amount eaten
+    const k = kind === "food" && it.grams >= 20 ? 100 / it.grams : 1;
     library.push({
-      action: "add", id: null, name: it.name, brand: "",
-      servingAmount: it.amount || 1, servingUnit: it.unit || "מנה", servingGrams: it.grams || null,
-      calories: it.calories, carbs: it.carbs, protein: it.protein, fat: it.fat, fiber: it.fiber,
+      ...base,
+      ...(k !== 1 ? { servingAmount: 100, servingUnit: "גרם", servingGrams: 100 } : { servingAmount: it.amount || 1, servingUnit: it.unit || "מנה", servingGrams: it.grams || null }),
+      calories: Math.round(it.calories * k), carbs: round1(it.carbs * k), protein: round1(it.protein * k), fat: round1(it.fat * k), fiber: round1(it.fiber * k),
     });
+  };
+  for (const it of [...add, ...update]) {
+    if (it.source === "web") keep(it, "food");
+    if (it.source === "composed") {
+      for (const c of components.get(it) || []) if (c.source === "web") keep(c, "food");
+      keep(it, "recipe");
+    }
   }
   const cleanEx = (x) => ({
     name: str(x.name),

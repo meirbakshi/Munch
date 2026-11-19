@@ -210,7 +210,7 @@ export function weightTrend(data, until, windowDays = 28) {
   return den ? num / den : null;
 }
 
-export const ENERGY_SOURCES = { user: "כתבת", library: "מהרשימה", web: "מהרשת", reference: "ערך מקובל", manual: "ידני" };
+export const ENERGY_SOURCES = { user: "כתבת", library: "מהרשימה", web: "מהרשת", composed: "מחושב מרכיבים", reference: "ערך מקובל", manual: "ידני" };
 export const MEALS = { breakfast: "ארוחת בוקר", lunch: "ארוחת צהריים", dinner: "ארוחת ערב", snack: "נשנושים" };
 export const MEAL_ORDER = ["breakfast", "lunch", "dinner", "snack"];
 export const mealByTime = () => {
