@@ -1,4 +1,4 @@
-import { getMcp, getSample } from "./claude.js";
+import { getMcp, getSample, getPermissions } from "./claude.js";
 import { MEALS, round1 } from "./calc.js";
 
 /* ---------- searching the food library (Hebrew-aware) ---------- */
@@ -122,6 +122,38 @@ const sessionId = (() => {
   return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 })();
 
+const SEARCH = "Parallel Search";
+/** Why the web search failed, in words the user can act on. */
+const SEARCH_ERRORS = {
+  not_in_manifest: "החיפוש ברשת לא אושר לאפליקציה. אפשר לאשר אותו בתפריט ההרשאות של הדף ב-claude.ai.",
+  approval_required: "החיפוש ברשת מחכה לאישור שלך. בפעם הבאה שיופיע חלון אישור, אשרו אותו.",
+  consent_required: "החיפוש ברשת מחכה לאישור שלך. בפעם הבאה שיופיע חלון אישור, אשרו אותו.",
+  server_not_connected: "החיבור Parallel Search לא מחובר בחשבון. אפשר להוסיף אותו ב-claude.ai, בהגדרות ← Connectors.",
+  needs_reauth: "צריך לחבר מחדש את Parallel Search ב-claude.ai, בהגדרות ← Connectors.",
+  selection_required: "יש יותר מחיבור אחד בשם Parallel Search. בחרו אחד בחלון שמופיע ב-claude.ai.",
+  blocked_by_policy: "החיפוש ברשת חסום בחשבון הזה.",
+  server_unavailable: "שירות החיפוש לא ענה בזמן.",
+  not_granted: "החיפוש ברשת לא זמין בתצוגה הזו.",
+  capability_disabled: "החיפוש ברשת לא זמין בתצוגה הזו.",
+};
+const searchErrorText = (code) => SEARCH_ERRORS[code] || `החיפוש ברשת נכשל (${code || "שגיאה"}).`;
+const wait = (ms, signal) => new Promise((res, rej) => {
+  const t = setTimeout(res, ms);
+  signal?.addEventListener?.("abort", () => { clearTimeout(t); rej(Object.assign(new Error("cancelled"), { code: "cancelled" })); }, { once: true });
+});
+
+/** Asks for the web search permission up front (on the user's tap), so it isn't asked mid-analysis. */
+async function searchPermission() {
+  const perms = await getPermissions();
+  if (!perms) return "unknown";
+  const name = "mcp:" + SEARCH;
+  try {
+    let st = await perms.state(name).catch(() => "unavailable");
+    if (st === "prompt") st = (await perms.request([name]).catch(() => ({})))[name] || st;
+    return st;
+  } catch { return "unknown"; }
+}
+
 export const aiAvailable = async () => Boolean(await getSample());
 
 /**
@@ -132,7 +164,12 @@ export const aiAvailable = async () => Boolean(await getSample());
 export async function analyzeLog({ text, date, dayEntries, dayExercises = [], weightKg, foods, portions = [], defaultMeal, draft = null, adjustment = "", onStep, signal }) {
   const sample = await getSample();
   if (!sample) throw new Error("הניתוח עובד רק כשהאפליקציה פתוחה ב-claude.ai. אפשר להוסיף פריטים ידנית.");
-  const mcp = await getMcp();
+  let mcp = await getMcp();
+  let searchProblem = "";
+  if (mcp) {
+    const st = await searchPermission();
+    if (st === "denied") { mcp = null; searchProblem = "החיפוש ברשת כבוי לאפליקציה. אפשר להפעיל אותו בתפריט ההרשאות של הדף ב-claude.ai."; }
+  }
 
   const refs = new Map(dayEntries.map((e, i) => ["e" + (i + 1), e.id]));
   const current = dayEntries.length
@@ -181,14 +218,27 @@ export async function analyzeLog({ text, date, dayEntries, dayExercises = [], we
       execute: async ({ objective, queries }, ctx) => {
         const qs = (Array.isArray(queries) ? queries : [queries]).map(String).filter(Boolean).slice(0, 3);
         onStep?.(`מחפש ברשת: ${qs[0] || objective}`);
-        try {
-          const res = await mcp.callTool("Parallel Search", "web_search", { objective: String(objective || qs[0]), search_queries: qs, session_id: sessionId }, { signal: ctx?.signal });
-          const results = (res?.payload?.results || []).slice(0, 5);
-          if (!results.length) return "No results.";
-          return results.map((r) => ({ title: r.title, url: r.url, excerpt: (r.excerpts || []).join("\n").replace(/\s+\n/g, "\n").slice(0, 1800) }));
-        } catch (e) {
-          throw new Error(`web search unavailable (${e?.code || "error"}); use reference values and say so in notes`);
+        const input = { objective: String(objective || qs[0]), search_queries: qs.length ? qs : [String(objective)], session_id: sessionId };
+        let res, err;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try { res = await mcp.callTool(SEARCH, "web_search", input, { signal: ctx?.signal }); err = null; break; }
+          catch (e) {
+            err = e;
+            if (e?.code === "cancelled" || !e?.retryable || attempt) break;
+            onStep?.("החיפוש לא ענה, מנסה שוב…");
+            await wait(Math.min(e.retryAfterMs || 1500 + Math.random() * 1000, 8000), ctx?.signal);
+          }
         }
+        if (err) {
+          if (err.code === "cancelled") throw err;
+          searchProblem = searchErrorText(err.code);
+          console.warn("web_search failed", err.code, err.message);
+          throw new Error(`web search unavailable (${err.code || "error"}); use reference values and say so in notes`);
+        }
+        const p = typeof res?.payload === "string" ? (() => { try { return JSON.parse(res.payload); } catch { return null; } })() : res?.payload;
+        const results = (p?.results || []).slice(0, 5);
+        if (!results.length) return "No results.";
+        return results.map((r) => ({ title: r.title, url: r.url, excerpt: (r.excerpts || []).join("\n").replace(/\s+\n/g, "\n").slice(0, 1800) }));
       },
     });
   }
@@ -292,5 +342,5 @@ ${text}
   const exerciseUpdate = (raw.exerciseUpdate || []).map((x) => ({ id: xrefs.get(String(x.ref)), ...cleanEx(x) })).filter((x) => x.id && x.name);
   const exerciseDelete = (raw.exerciseDelete || []).map((r) => xrefs.get(String(r))).filter(Boolean);
   const newPortions = (raw.portions || []).map((p) => ({ term: str(p.term), value: str(p.value) })).filter((p) => p.term && p.value);
-  return { add, update, delete: del, library, exercise, exerciseUpdate, exerciseDelete, portions: newPortions, notes: str(raw.notes) };
+  return { add, update, delete: del, library, exercise, exerciseUpdate, exerciseDelete, portions: newPortions, notes: [str(raw.notes), searchProblem].filter(Boolean).join(" ") };
 }
