@@ -389,6 +389,18 @@ function Composer({ date, entries, exercises, weightKg, foods, portions, aiReady
 
 /* ---------- the review pop-up ---------- */
 
+/** Where an item's values came from, and whether it was just saved to the user's list. */
+const SOURCE_BADGES = { library: "מהרשימה שלך", web: "מהרשת", user: "כתבת", reference: "ערך מקובל", manual: "ידני" };
+function SourceBadges({ item, saved }) {
+  const label = SOURCE_BADGES[item.source];
+  return (
+    <>
+      {label && <span className={`badge ${item.source === "web" || item.source === "library" ? "web" : ""}`}>{label}</span>}
+      {item.source === "web" && saved.has(norm(item.name)) && <span className="badge add">נשמר ברשימה</span>}
+    </>
+  );
+}
+
 function ReviewSheet({ result, setResult, entries, exercises, onSave, onRevise, onUndoSaved, onStop, step, onClose }) {
   const [adjust, setAdjust] = useState("");
   const [revising, setRevising] = useState(false);
@@ -397,6 +409,8 @@ function ReviewSheet({ result, setResult, entries, exercises, onSave, onRevise, 
   const [editIdx, setEditIdx] = useState(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const byId = new Map(entries.map((e) => [e.id, e]));
+  // foods saved to the list during this review (web results are saved automatically)
+  const savedNames = new Set((result.savedChanges || []).filter((c) => c.type === "food" && !c.undone).map((c) => norm(c.after.name)));
   const exById = new Map(exercises.map((x) => [x.id, x]));
   const draftKcal =
     result.add.reduce((a, x) => a + x.calories, 0) + result.update.reduce((a, u) => a + u.calories - (byId.get(u.id)?.calories || 0), 0) - result.delete.reduce((a, id) => a + (byId.get(id)?.calories || 0), 0)
@@ -445,8 +459,8 @@ function ReviewSheet({ result, setResult, entries, exercises, onSave, onRevise, 
           {result.add.map((it, i) => (
             <button key={"a" + i} className="cell tap" onClick={() => edit("add", i)}>
               <div className="entry grow">
-                <span className="name">{it.name}<span className="badge add">חדש</span></span>
-                <span className="meta">{fmt(it.amount, it.amount % 1 ? 1 : 0)} {it.unit} · {MEALS[it.meal]} · {ENERGY_SOURCES[it.source]}{it.sourceNote ? ` · ${it.sourceNote}` : ""}</span>
+                <span className="name">{it.name}<SourceBadges item={it} saved={savedNames} /></span>
+                <span className="meta">{fmt(it.amount, it.amount % 1 ? 1 : 0)} {it.unit} · {MEALS[it.meal]}{it.sourceNote ? ` · ${it.sourceNote}` : ""}</span>
                 <span className="kcal num">{fmt(it.calories)}<small>קק״ל</small></span>
               </div>
               <Icon.chev className="chev" />
