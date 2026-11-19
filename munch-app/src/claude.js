@@ -12,4 +12,5 @@ export const getUser = () => use("user");
 export const getSample = () => use("sample");
 export const getMcp = () => use("mcp");
 export const getDownloads = () => use("downloads");
+export const getPermissions = () => use("permissions");
 export const inClaude = () => rt() !== null;
