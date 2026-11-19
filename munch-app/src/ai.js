@@ -49,14 +49,14 @@ How to work:
       - Do NOT use it when the user describes what this serving contained (ingredients, toppings, cooking method) and that differs from, or isn't evidently, the saved item. Calculate it from the described components instead (each component by the same priority), and name the item by what was described (e.g. "סלט עגבניות, מלפפון ובצל עם כף שמן זית").
       - A generic name with no details and no specific library match: use a typical Israeli version ("reference" or "web") and state the assumption in sourceNote.
       When unsure, don't use the library item, and mention the closest saved item in notes so the user can ask for it.
-   c. "web": search online with web_search, ALWAYS when a specific brand or product is mentioned (e.g. תנובה, שטראוס, יטבתה, אסם, עלית, טרה, מולר, דנונה, a restaurant chain) and when you are not confident of the values. Prefer Israeli sources: the manufacturer's site, foodsdictionary.co.il, Open Food Facts Israel, the Ministry of Health database. Use per-100 g values and scale them.
+   c. "web": ONLY after search_my_foods found no item the user clearly means, search online with web_search. Do it ALWAYS when a specific brand or product is mentioned (e.g. תנובה, שטראוס, יטבתה, אסם, עלית, טרה, מולר, דנונה, a restaurant chain) and when you are not confident of the values. Prefer Israeli sources: the manufacturer's site, foodsdictionary.co.il, Open Food Facts Israel, the Ministry of Health database. Use per-100 g values and scale them.
    d. "reference": for plain generic foods (an apple, an egg, white rice, olive oil) standard values are fine without searching (Israeli Ministry of Health / USDA).
 3. All values are for the full amount eaten: calories (kcal), carbs, protein, fat, fiber (grams). "carbs" excludes dietary fiber when the source separates them, as Israeli labels do. Round calories to whole numbers and grams to one decimal.
 4. Changes to what was already logged: the day's current log is given with refs (e1, e2, ...). If the user says something was wrong, eaten in a different amount, or should be removed, put it in "update" (with the ref and the full corrected item) or "delete" (the ref). Only touch logged items the user referred to. If the user's message only adds foods, leave update and delete empty.
 5. Library changes ("library"): keep the user's list of foods and recipes useful.
-   - "add" a new item when the user gives nutrition values for a named food, describes a recipe of their own (ingredients and amounts → compute per-serving values), or when you found a specific branded product's values online.
+   - "add" a new item when the user gives nutrition values for a named food, describes a recipe of their own (ingredients and amounts → compute per-serving values), and for EVERY food whose values you took from web_search (source "web"), with the same name you used in "add", so it is found in the list next time.
    - "update" an existing library item (use its id from search_my_foods) when the user corrects its values or says its serving/recipe changed.
-   - Do not add generic foods (an apple, an egg) and do not duplicate an item that already exists.
+   - Do not add generic foods you took from "reference" (an apple, an egg) and do not duplicate an item that already exists.
    Library items are per serving: servingAmount + servingUnit (e.g. 100 גרם, 1 יחידה), plus servingGrams when known.
 6. Names, units, sourceNote and notes in Hebrew. sourceNote: short, where the numbers came from and any assumption (e.g. "לפי אתר תנובה: 95 קק״ל ל-100 גרם", "הנחתי מלפפון בינוני, 100 גרם"). notes: one short sentence on anything the user should check, or "".
 7a. Portion definitions: when the user tells you how big one of their portions is ("אצלי כוס זה 200 מ״ל", "מעכשיו פרוסה = 25 גרם", "הכוס שלי 200 מ״ל ולא 250"), add it to "portions" as {"term": the portion word in Hebrew, "value": its size in Hebrew, e.g. "200 מ״ל"} so it is saved and used from now on, AND apply it to this message's items. A definition that changes a saved one replaces it.
@@ -166,6 +166,7 @@ export async function analyzeLog({ text, date, dayEntries, dayExercises = [], we
   if (!sample) throw new Error("הניתוח עובד רק כשהאפליקציה פתוחה ב-claude.ai. אפשר להוסיף פריטים ידנית.");
   let mcp = await getMcp();
   let searchProblem = "";
+  let librarySearched = false;
   if (mcp) {
     const st = await searchPermission();
     if (st === "denied") { mcp = null; searchProblem = "החיפוש ברשת כבוי לאפליקציה. אפשר להפעיל אותו בתפריט ההרשאות של הדף ב-claude.ai."; }
@@ -191,6 +192,7 @@ export async function analyzeLog({ text, date, dayEntries, dayExercises = [], we
       inputSchema: { type: "object", properties: { query: { type: "string" } }, required: ["query"] },
       execute: ({ query }) => {
         const q = String(query || "");
+        librarySearched = true;
         onStep?.(`מחפש ברשימה שלך: ${q}`);
         const hits = searchFoods(foods, q);
         if (!hits.length) return `No items match "${q}".`;
@@ -218,6 +220,7 @@ export async function analyzeLog({ text, date, dayEntries, dayExercises = [], we
       execute: async ({ objective, queries }, ctx) => {
         const qs = (Array.isArray(queries) ? queries : [queries]).map(String).filter(Boolean).slice(0, 3);
         onStep?.(`מחפש ברשת: ${qs[0] || objective}`);
+        if (!librarySearched) throw new Error("search the user's own list with search_my_foods first; use web_search only for foods it has no fitting item for");
         const input = { objective: String(objective || qs[0]), search_queries: qs.length ? qs : [String(objective)], session_id: sessionId };
         let res, err;
         for (let attempt = 0; attempt < 2; attempt++) {
@@ -331,6 +334,17 @@ ${text}
       fiber: round1(num(l.fiber)),
     }))
     .filter((l) => l.name);
+  // every food whose values came from the web is saved to the user's list (unless it's already there)
+  const listed = new Set([...foods.map((f) => norm(f.name)), ...library.filter((l) => l.action === "add").map((l) => norm(l.name))]);
+  for (const it of [...add, ...update]) {
+    if (it.source !== "web" || listed.has(norm(it.name))) continue;
+    listed.add(norm(it.name));
+    library.push({
+      action: "add", id: null, name: it.name, brand: "",
+      servingAmount: it.amount || 1, servingUnit: it.unit || "מנה", servingGrams: it.grams || null,
+      calories: it.calories, carbs: it.carbs, protein: it.protein, fat: it.fat, fiber: it.fiber,
+    });
+  }
   const cleanEx = (x) => ({
     name: str(x.name),
     minutes: x.minutes == null ? null : Math.round(num(x.minutes)) || null,

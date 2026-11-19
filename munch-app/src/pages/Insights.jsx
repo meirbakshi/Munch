@@ -63,9 +63,13 @@ export default function Insights({ aiReady }) {
 
   return (
     <>
-      <div className="nav-row" />
+      <div className="nav-row">
+        <span />
+        {enough && <button className="link" style={{ fontWeight: 600 }} disabled={!aiReady || busy} onClick={run}>{saved ? "רענון" : "ניתוח"}</button>}
+      </div>
       <h1 className="large-title">תובנות</h1>
       <p className="subtitle">מה הרישומים והשקילות שלך מראים, ועל מה כדאי לשים את הדגש.</p>
+      {enough && saved && !busy && <p className="sublabel" style={{ margin: "-6px 0 14px" }}>עודכן {ago(saved.generatedAt)}{newData ? " · יש נתונים חדשים מאז" : ""}</p>}
 
       {!enough ? (
         <div className="group"><div className="empty">התובנות מבוססות על הרישומים שלך, ולכן צריך עוד קצת נתונים: לפחות {MIN_LOGGED_DAYS} ימים רשומים (יש {logged}). ככל שיהיו יותר ימים ושקילות, התובנות יהיו מדויקות יותר.</div></div>
@@ -93,11 +97,8 @@ export default function Insights({ aiReady }) {
               })}
             </div>
           )}
-          {!busy && (
-            <div className="insight-foot">
-              <span className="sublabel">{saved ? `עודכן ${ago(saved.generatedAt)}${newData ? " · יש נתונים חדשים מאז" : ""}` : ""}</span>
-              <button className="btn small tinted" disabled={!aiReady} onClick={run}>{saved ? "רענון" : "ניתוח"}</button>
-            </div>
+          {!busy && !saved && !error && (
+            <div className="group"><div className="empty">עוד אין תובנות. לחצו על ״ניתוח״ למעלה.</div></div>
           )}
           {!aiReady && <p className="footnote">הניתוח עובד רק כשהאפליקציה פתוחה ב-claude.ai.</p>}
           <p className="footnote">התובנות נכתבות על ידי Claude מתוך הנתונים שלך בלבד, ומתעדכנות לבד אחרי כל שקילה חדשה. הן לא תחליף לייעוץ רפואי או תזונתי.</p>
