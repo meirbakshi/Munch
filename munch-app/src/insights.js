@@ -1,4 +1,6 @@
+import { useSyncExternalStore } from "react";
 import { getSample } from "./claude.js";
+import { mutate } from "./store.js";
 import {
   addDays, computeDays, currentSettings, expectedWeights, firstWeight, latestWeight, macroShares, planFor, plannedWeights, startDate, todayISO, weekStart,
 } from "./calc.js";
@@ -68,8 +70,39 @@ export function insightsInput(data) {
 export const insightsKey = (data) => {
   const lw = latestWeight(data);
   const logged = [...computeDays(data, todayISO()).values()].filter((d) => d.logged).length;
-  return { weighIn: lw?.date || null, logged };
+  return { weighIn: lw?.date || null, kg: lw?.kg ?? null, logged };
 };
+
+/** True when the saved analysis predates the latest weigh-in (a new one, or a changed weight). */
+export const insightsStale = (data) => {
+  const saved = data.insights, k = insightsKey(data);
+  return !saved || saved.key?.weighIn !== k.weighIn || (saved.key?.kg ?? null) !== k.kg;
+};
+
+/* ---------- one shared run, so it can start from anywhere (e.g. right after a weigh-in) ---------- */
+
+let run = { busy: false, error: null };
+let ctl = null;
+const subs = new Set();
+const setRun = (patch) => { run = { ...run, ...patch }; subs.forEach((f) => f()); };
+export const useInsightsRun = () => useSyncExternalStore((f) => (subs.add(f), () => subs.delete(f)), () => run);
+export const stopInsights = () => ctl?.abort();
+
+/** Analyzes the data and saves the result. Does nothing if a run is already in progress. */
+export async function runInsights(data) {
+  if (run.busy) return;
+  ctl = new AbortController();
+  setRun({ busy: true, error: null });
+  try {
+    const key = insightsKey(data);
+    const items = await generateInsights(data, ctl.signal);
+    await mutate((d) => void (d.insights = { generatedAt: new Date().toISOString(), key, items }));
+  } catch (e) {
+    if (!e.cancelled) setRun({ error: e.message });
+  } finally {
+    setRun({ busy: false });
+  }
+}
 
 /* ---------- the analysis ---------- */
 

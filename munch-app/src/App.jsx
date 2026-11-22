@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getSample } from "./claude.js";
-import { currentSettings, todayISO } from "./calc.js";
+import { computeDays, currentSettings, latestWeight, todayISO } from "./calc.js";
+import { MIN_LOGGED_DAYS, insightsStale, runInsights } from "./insights.js";
 import Daily from "./pages/Daily.jsx";
 import History from "./pages/History.jsx";
 import Settings from "./pages/Settings.jsx";
@@ -56,6 +57,20 @@ export default function App() {
   useEffect(() => {
     if (store.status === "ready") syncThemeFromData();
   }, [store.status]);
+
+  // refresh the insights in the background after every weigh-in (a new one or a changed weight),
+  // whichever page is open; one attempt per weigh-in, so a failure doesn't retry in a loop
+  const lw = store.status === "ready" ? latestWeight(store.data) : null;
+  const weighInSig = lw ? `${lw.date}:${lw.kg}` : "";
+  const triedFor = useRef("");
+  useEffect(() => {
+    if (store.status !== "ready" || !aiReady || !weighInSig || triedFor.current === weighInSig) return;
+    if (!insightsStale(store.data)) return;
+    const logged = [...computeDays(store.data, todayISO()).values()].filter((d) => d.logged).length;
+    if (logged < MIN_LOGGED_DAYS) return;
+    triedFor.current = weighInSig;
+    runInsights(store.data);
+  }, [store.status, aiReady, weighInSig]);
 
   if (store.status === "loading") return <div className="shell"><div className="scroller"><div className="app"><div className="center-screen"><div><span className="spinner" style={{ display: "inline-block" }} /><div style={{ marginTop: 10 }}>טוען את הנתונים שלך…</div></div></div></div></div></div>;
   if (store.status === "error") return <div className="shell"><div className="scroller"><div className="app"><div className="center-screen"><div className="alert error">{store.error}</div></div></div></div></div>;
