@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from "react";
 import { computeDays, fmtDate, todayISO } from "../calc.js";
-import { MIN_LOGGED_DAYS, generateInsights, insightsKey } from "../insights.js";
-import { mutate, stableJson, useStore } from "../store.js";
+import { MIN_LOGGED_DAYS, insightsKey, runInsights, stopInsights, useInsightsRun } from "../insights.js";
+import { stableJson, useStore } from "../store.js";
 
 const KIND = {
   good: { label: "עובד לך", tone: "good", glyph: "check" },
@@ -31,33 +30,9 @@ export default function Insights({ aiReady }) {
   const key = insightsKey(data);
   const logged = [...computeDays(data, todayISO()).values()].filter((d) => d.logged).length;
   const enough = logged >= MIN_LOGGED_DAYS;
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
-  const ctl = useRef(null);
-  const tried = useRef(false);
-
-  async function run() {
-    setBusy(true);
-    setError(null);
-    ctl.current = new AbortController();
-    try {
-      const items = await generateInsights(data, ctl.current.signal);
-      await mutate((d) => void (d.insights = { generatedAt: new Date().toISOString(), key, items }));
-    } catch (e) {
-      if (!e.cancelled) setError(e.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // analyze on its own the first time, and after a new weigh-in; otherwise only on request
-  const stale = !saved || saved.key?.weighIn !== key.weighIn;
-  useEffect(() => {
-    if (enough && aiReady && stale && !tried.current) {
-      tried.current = true;
-      run();
-    }
-  }, [enough, aiReady, stale]);
+  // the analysis runs on its own after every weigh-in (see App.jsx), or here on request
+  const { busy, error } = useInsightsRun();
+  const run = () => runInsights(data);
 
   const newData = saved && stableJson(saved.key) !== stableJson(key);
 
@@ -78,7 +53,7 @@ export default function Insights({ aiReady }) {
           {busy && (
             <div className="group insight-busy">
               <div className="progress"><span className="spinner" />מנתח את הרישומים שלך…</div>
-              <button className="btn small gray" onClick={() => ctl.current?.abort()}>עצירה</button>
+              <button className="btn small gray" onClick={stopInsights}>עצירה</button>
             </div>
           )}
           {error && <div className="alert error" style={{ marginBottom: 10 }}>{error}</div>}
