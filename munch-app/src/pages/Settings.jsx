@@ -461,7 +461,7 @@ function FoodLibrary() {
   const list = useMemo(() => {
     const nq = norm(q);
     const all = [...data.foods].sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
-    return nq ? all.filter((f) => norm(`${f.name} ${f.brand || ""}`).includes(nq)) : all;
+    return nq ? all.filter((f) => norm(`${f.name} ${f.brand || ""} ${(f.aliases || []).join(" ")}`).includes(nq)) : all;
   }, [data.foods, q]);
   const SRC = { loseit: "Lose It", log: "מהרישום", manual: "ידני", web: "מהרשת" };
   return (
@@ -477,7 +477,7 @@ function FoodLibrary() {
               <button key={f.id} className="cell tap" onClick={() => setEdit(f)}>
                 <div className="grow">
                   <div style={{ overflowWrap: "anywhere" }}>{f.name}{f.brand ? <span className="sublabel"> · {f.brand}</span> : null}</div>
-                  <div className="sublabel num">{f.servingAmount} {f.servingUnit} · {fmt(f.calories)} קק״ל · {f.kind === "recipe" ? "מתכון" : "מזון"} · {SRC[f.source] || ""}</div>
+                  <div className="sublabel num">{f.servingAmount} {f.servingUnit} · {fmt(f.calories)} קק״ל · {f.kind === "recipe" ? "מתכון" : "מזון"}{f.portions?.length ? ` · עוד ${fmt(f.portions.length)} ${f.portions.length > 1 ? "גדלים" : "גודל"}` : ""} · {SRC[f.source] || ""}</div>
                 </div>
                 <Icon.chev className="chev" />
               </button>
@@ -493,12 +493,17 @@ function FoodLibrary() {
 }
 
 function FoodSheet({ food, onClose }) {
-  const [f, setF] = useState({ ...food });
+  const [f, setF] = useState({ ...food, aliasText: (food.aliases || []).join(", "), sizes: (food.portions || []).map((x) => ({ ...x })) });
   const [confirmDel, setConfirmDel] = useState(false);
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
   const valid = String(f.name).trim() && parseFloat(f.servingAmount) > 0;
   const save = async () => {
-    const out = { ...f, name: f.name.trim(), brand: (f.brand || "").trim(), servingAmount: parseFloat(f.servingAmount), servingGrams: parseFloat(f.servingGrams) || null, updatedAt: new Date().toISOString() };
+    const { aliasText, sizes, ...rest } = f;
+    const out = { ...rest, name: f.name.trim(), brand: (f.brand || "").trim(), servingAmount: parseFloat(f.servingAmount), servingGrams: parseFloat(f.servingGrams) || null, updatedAt: new Date().toISOString() };
+    const aliases = aliasText.split(/[,،\n]/).map((x) => x.trim()).filter(Boolean);
+    const portions = sizes.map((x) => ({ unit: String(x.unit || "").trim(), grams: parseFloat(x.grams) || 0 })).filter((x) => x.unit && x.grams > 0);
+    if (aliases.length) out.aliases = aliases; else delete out.aliases;
+    if (portions.length) out.portions = portions; else delete out.portions;
     for (const k of ["calories", "carbs", "protein", "fat", "fiber"]) out[k] = Math.max(0, parseFloat(f[k]) || 0);
     try {
       await mutate((d) => {
@@ -524,6 +529,31 @@ function FoodSheet({ food, onClose }) {
           <div className="field"><label htmlFor="fd-g">משקל המנה (ג׳)</label><input id="fd-g" type="number" inputMode="decimal" value={f.servingGrams ?? ""} onChange={(e) => set("servingGrams", e.target.value)} /></div>
           {NUM.map(([k, l]) => <div className="field" key={k}><label htmlFor={"fd-" + k}>{l} למנה</label><input id={"fd-" + k} type="number" inputMode="decimal" value={f[k]} onChange={(e) => set(k, e.target.value)} /></div>)}
         </div>
+        <div className="field">
+          <label htmlFor="fd-aliases">שמות נוספים</label>
+          <input id="fd-aliases" placeholder="למשל: גמבה, פלפל אדום גדול" value={f.aliasText} onChange={(e) => set("aliasText", e.target.value)} />
+        </div>
+        <p className="footnote" style={{ margin: "-4px 4px 0" }}>שמות אחרים שבהם תכתבו על הפריט, מופרדים בפסיקים. הרישום ימצא אותו גם לפיהם.</p>
+        <div className="field">
+          <label>גדלים נוספים</label>
+          {f.sizes.map((x, i) => (
+            <div className="size-row" key={i}>
+              <input aria-label="יחידה" placeholder="כף" value={x.unit} onChange={(e) => set("sizes", f.sizes.map((y, j) => (j === i ? { ...y, unit: e.target.value } : y)))} />
+              <input aria-label="משקל בגרמים" placeholder="גרם" type="number" inputMode="decimal" value={x.grams} onChange={(e) => set("sizes", f.sizes.map((y, j) => (j === i ? { ...y, grams: e.target.value } : y)))} />
+              <button className="icon-btn" aria-label={`הסרת ${x.unit || "הגודל"}`} onClick={() => set("sizes", f.sizes.filter((_, j) => j !== i))}><Icon.remove /></button>
+            </div>
+          ))}
+          <div><button className="btn small tinted" onClick={() => set("sizes", [...f.sizes, { unit: "", grams: "" }])}><Icon.plus />הוספת גודל</button></div>
+        </div>
+        <p className="footnote" style={{ margin: "-4px 4px 0" }}>{f.servingGrams ? "משקל של מנה בגודל אחר (כף, יחידה, פרוסה), כדי שהרישום יחשב אותה מדויק." : "כדי לחשב גדלים נוספים, מלאו גם את משקל המנה."}</p>
+        {f.components?.length > 0 && (
+          <>
+            <div className="section-head" style={{ margin: "8px 16px 0" }}><h3 className="section-title">רכיבים</h3></div>
+            <div className="group">
+              {f.components.map((c, i) => <div className="cell" key={i}><span className="grow">{c.name}</span><span className="value num">{c.grams ? `${fmt(c.grams)} ג׳` : `${fmt(c.amount)} ${c.unit}`}</span></div>)}
+            </div>
+          </>
+        )}
         {f.id && <button className="btn block danger" onClick={() => setConfirmDel(true)}>מחיקה מהרשימה</button>}
       </div>
       {confirmDel && <ConfirmSheet title="למחוק את הפריט?" message={`"${f.name}" יימחק מהרשימה. רישומים ביומן לא ישתנו.`} confirmLabel="מחיקה" danger onConfirm={del} onClose={() => setConfirmDel(false)} />}

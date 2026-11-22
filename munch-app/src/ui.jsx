@@ -16,6 +16,7 @@ export const Icon = {
   calendar: (p) => <S size={17} {...p}><rect x="3.5" y="5" width="17" height="15" rx="3" /><path d="M3.5 10h17M8 3v4M16 3v4" /></S>,
   send: (p) => <S size={18} w={2.4} {...p}><path d="M12 19V5M5 12l7-7 7 7" /></S>,
   plus: (p) => <S size={18} w={2.4} {...p}><path d="M12 5v14M5 12h14" /></S>,
+  remove: (p) => <S size={22} w={2.2} {...p}><circle cx="12" cy="12" r="9" fill="currentColor" stroke="none" /><path d="M8 12h8" stroke="var(--cell)" /></S>,
   search: (p) => <S size={16} w={2.2} {...p}><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4.2-4.2" /></S>,
   scale: (p) => <S size={18} {...p}><rect x="3.5" y="4" width="17" height="16" rx="4" /><path d="M9 9.5a4 4 0 0 1 6 0M12 9.5l1.2-1.8" /></S>,
 };

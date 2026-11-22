@@ -378,6 +378,8 @@ button { cursor: pointer; }
   width: 100%; border: 0; border-radius: 10px; background: var(--cell); min-height: 44px; padding: 0 12px; outline: none;
 }
 .field input:focus, .field select:focus { box-shadow: 0 0 0 2px var(--tint); }
+.size-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px; gap: 8px; align-items: center; }
+.size-row .icon-btn { color: var(--red); }
 .table-scroll { overflow-x: auto; }
 .table-scroll table { border-collapse: collapse; font-size: 13px; min-width: 100%; }
 .table-scroll th, .table-scroll td { padding: 6px 8px; text-align: start; border-bottom: 0.5px solid var(--sep); white-space: nowrap; }
