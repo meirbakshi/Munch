@@ -11,10 +11,24 @@ export const norm = (s) =>
     .replace(/[׳'`"״]/g, "")
     .replace(/[ךםןףץ]/g, (c) => FINALS[c])
     .replace(/[^\p{L}\p{N}%.]+/gu, " ")
+    .replace(/יי+/g, "י") // spelling variants: עגבנייה = עגבניה
+    .replace(/וו+/g, "ו")
     .trim();
 const tokens = (s) => norm(s).split(" ").filter(Boolean);
 // strip a leading Hebrew prefix letter (ו, ה, ב, ל, מ, ש, כ) for a looser match
 const stem = (t) => (t.length > 3 && "והבלמשכ".includes(t[0]) ? t.slice(1) : t);
+// singular and plural alike (after norm, ם is מ): עגבניות / עגבניה → עגבני, מלפפונים → מלפפונ
+const root = (t) => t.replace(/(ימ|ות|ה)$/, (m) => (t.length - m.length >= 3 ? "" : m));
+
+/** The name that identifies a food, ignoring spelling, plural, word order and a parenthetical. */
+const foodKey = (s) => tokens(String(s || "").replace(/\([^)]*\)/g, " ")).map(root).sort().join(" ");
+// a bare category comes in many versions, so the list's item isn't assumed to be it (a "פיצה" isn't the list's "פיצה (משולש)")
+const BROAD = new Set(["סלט", "פיצה", "כריך", "סנדוויץ", "טוסט", "פסטה", "מרק", "עוגה", "שקשוקה", "חביתה", "אומלט", "שייק", "סמותי", "סמוזי", "באול", "ראפ", "טורטיה", "קערה"].map((w) => foodKey(w)));
+/** List items that are the same food as `name` (e.g. "מלפפונים" → the item "מלפפון"). */
+export const sameFoods = (foods, name) => {
+  const k = foodKey(name);
+  return k && !BROAD.has(k) ? foods.filter((f) => foodKey(f.name) === k || (f.brand && foodKey(`${f.name} ${f.brand}`) === k)) : [];
+};
 
 export function searchFoods(foods, query, limit = 8) {
   const q = tokens(query);
@@ -27,9 +41,10 @@ export function searchFoods(foods, query, limit = 8) {
     for (const t of q) {
       if (ft.includes(t)) score += 3;
       else if (ft.some((x) => stem(x) === stem(t))) score += 2.5;
+      else if (ft.some((x) => root(stem(x)) === root(stem(t)))) score += 2.2;
       else if (name.includes(t) || name.includes(stem(t))) score += 1.5;
     }
-    if (norm(f.name) === norm(query)) score += 4;
+    if (norm(f.name) === norm(query) || foodKey(f.name) === foodKey(query)) score += 4;
     if (score > 0) scored.push([score / Math.max(1, q.length) - ft.length * 0.02, f]);
   }
   return scored.sort((a, b) => b[0] - a[0]).slice(0, limit).map((x) => x[1]);
@@ -43,17 +58,19 @@ How to work:
 1. Split the message into individual foods and drinks with the amount eaten. When no amount is given, assume one typical ISRAELI serving and say so in sourceNote. Use Israeli sizes, not American ones. Typical references: medium cucumber ≈ 100 g, medium tomato ≈ 120 g, medium apple ≈ 150 g, banana ≈ 120 g (peeled), egg (L) ≈ 55 g without shell, slice of bread ≈ 30 g, pita ≈ 90 g, laffa ≈ 120 g, schnitzel ≈ 130 g, portion of hummus in a restaurant ≈ 200 g, tablespoon of oil ≈ 13 g, tablespoon of raw tahini ≈ 15 g, cup = 240 ml, tablespoon = 15 ml, teaspoon = 5 ml, "קופסה" of cottage/white cheese = 250 g, Israeli yogurt cup ≈ 150–200 g (check the product). The user's own portion definitions (listed below the instructions) ALWAYS override these defaults.
 2. For each food or dish pick nutrition values by this priority, and record which one you used in "source":
    a. "user": the user wrote the nutrition values in the message. Use exactly what they wrote and fill in only what's missing.
-   b. "library": the user's own list of custom foods and recipes. Call search_my_foods for every food (retry with a shorter or alternative Hebrew name if nothing matches), then be SELECTIVE: use a library item only when the user clearly means THAT specific item.
+   b. "library": the user's own list of foods and recipes (about 1,100 items: Israeli basics, vegetables, fruit, dairy, brands, their recipes). Call search_my_foods for every food and every component (retry with a shorter or alternative Hebrew name, e.g. singular, if nothing matches) and WAIT for its answer before any web_search: never call web_search for a food in the same step as its search_my_foods call.
+      - A basic food or single ingredient (a vegetable, fruit, egg, bread, cheese, oil, rice, a spice...) that has a list item of the same name IS that item: always use it, at the amount eaten (scale from its serving), even inside a dish the user described. The rules below are about DISHES and products only.
+      For dishes and products, be SELECTIVE: use a library item only when the user clearly means THAT specific item.
       - Use it when the text names the same specific dish or product (e.g. "מג׳דרה" → their "מג׳דרה, כוס אחת"; "פשטידת זיתים" → their olive quiche; a brand + product that matches).
       - Do NOT use it for a broad category that comes in many versions (salad, pizza, sandwich, toast, pasta, soup, cake, shakshuka, omelette, smoothie, bowl, wrap...) unless the user names the same specific variety as the library item ("פיצה מעדנות" yes; just "פיצה" no; "סלט" no).
       - Do NOT use it when the user describes what this serving contained (ingredients, toppings, cooking method) and that differs from, or isn't evidently, the saved item. Then look for the dish as described online (c), and if it isn't found, compose it (d). Name the item by what was described (e.g. "סלט עגבניות, מלפפון ובצל עם כף שמן זית").
       - A generic name with no details and no specific library match: search online for a typical Israeli version ("web"; "reference" only as the last resort below) and state the assumption in sourceNote.
       When unsure, don't use the library item, and mention the closest saved item in notes so the user can ask for it.
-   c. "web": for EVERY food that search_my_foods has no item for that the user clearly means, search online with web_search, generic foods included (an apple, an egg, white rice, a restaurant dish). Search per food (one call per food, 1-3 queries). Prefer Israeli sources: the manufacturer's site, foodsdictionary.co.il, Open Food Facts Israel, the Ministry of Health database (also on israel.com/calories). Use per-100 g values and scale them. If the first search finds nothing usable, try once more with other words (Hebrew and English).
+   c. "web": ONLY for a food that search_my_foods returned no fitting item for, search online with web_search, generic foods included (an apple, an egg, white rice, a restaurant dish). Search per food (one call per food, 1-3 queries, and "food" = its Hebrew name); web_search refuses a food that is in the user's list and returns the list item instead: then use that item ("library"). Prefer Israeli sources: the manufacturer's site, foodsdictionary.co.il, Open Food Facts Israel, the Ministry of Health database (also on israel.com/calories). Use per-100 g values and scale them. If the first search finds nothing usable, try once more with other words (Hebrew and English).
    d. "composed": a dish made of several components (the user lists them, e.g. "40 גרם עלי תרד מוקפצים בחמאה, שום וגבינת שמנת", or it is evidently a combination, e.g. "פוקצ׳ה עם אנטי פסטי") whose WHOLE was not found in the list (b) nor online (c) as the same dish or close enough. Then:
       - Split it into its components (spinach, butter, garlic, cream cheese; focaccia, antipasti).
       - Give each component an amount: what the user described first; otherwise a typical amount for this dish. When the user gave the dish's total weight or size, the components must add up to it (40 g of spinach in butter, garlic and cream cheese ≈ 30 g spinach, 5 g butter, 3 g cream cheese, 2 g garlic).
-      - Find each component's values by the same order: search_my_foods, then web_search, then "reference" as the last resort.
+      - Find each component's values by the same order: search_my_foods first (most basic ingredients are in the list: use them, source "library"), web_search only for the components the list has no item for, then "reference" as the last resort.
       - The dish's values are the sum of its components. Log the dish as ONE item, and list the components in its "components" array: [{"name","amount","unit","grams","calories","carbs","protein","fat","fiber","source","per100g"}] with source library, web or reference, each for the amount used; for a "web" component also give "per100g": {"calories","carbs","protein","fat","fiber"} as found online.
       - sourceNote: the breakdown, short, e.g. "30 ג׳ תרד (מהרשת) · 5 ג׳ חמאה (מהרשימה) · 3 ג׳ גבינת שמנת (מהרשת) · 2 ג׳ שום".
    e. "reference": a LAST resort, only when web_search returned nothing similar enough to the food after you tried, or web search is unavailable. Use standard values (Israeli Ministry of Health / USDA) and say in sourceNote that nothing was found online.
@@ -180,7 +197,7 @@ export async function analyzeLog({ text, date, dayEntries, dayExercises = [], we
   if (!sample) throw new Error("הניתוח עובד רק כשהאפליקציה פתוחה ב-claude.ai. אפשר להוסיף פריטים ידנית.");
   let mcp = await getMcp();
   let searchProblem = "";
-  let librarySearched = false;
+  const looked = new Set(); // the foods already looked up in the user's list (by foodKey)
   let webSearches = 0;
   if (mcp) {
     const st = await searchPermission();
@@ -207,35 +224,58 @@ export async function analyzeLog({ text, date, dayEntries, dayExercises = [], we
       inputSchema: { type: "object", properties: { query: { type: "string" } }, required: ["query"] },
       execute: ({ query }) => {
         const q = String(query || "");
-        librarySearched = true;
+        looked.add(foodKey(q));
         onStep?.(`מחפש ברשימה שלך: ${q}`);
         const hits = searchFoods(foods, q);
         if (!hits.length) return `No items match "${q}".`;
-        return hits.map((f) => ({
-          id: f.id,
-          name: f.name,
-          brand: f.brand || undefined,
-          type: f.kind === "recipe" ? "recipe" : "food",
-          serving: `${f.servingAmount} ${f.servingUnit}${f.servingGrams ? ` (${f.servingGrams} g)` : ""}`,
-          perServing: { calories: f.calories, carbs: f.carbs, protein: f.protein, fat: f.fat, fiber: f.fiber },
-        }));
+        return asItems(hits);
       },
     },
   ];
+  /** List items as the model sees them. */
+  function asItems(hits) {
+    return hits.map((f) => ({
+      id: f.id,
+      name: f.name,
+      brand: f.brand || undefined,
+      type: f.kind === "recipe" ? "recipe" : "food",
+      serving: `${f.servingAmount} ${f.servingUnit}${f.servingGrams ? ` (${f.servingGrams} g)` : ""}`,
+      perServing: { calories: f.calories, carbs: f.carbs, protein: f.protein, fat: f.fat, fiber: f.fiber },
+    }));
+  }
   if (mcp) {
     tools.push({
       name: "web_search",
       description:
-        "Search the web for nutrition values. Give an objective (what to find, e.g. 'nutrition per 100g of Tnuva cottage 5%') and 1-3 short queries (Hebrew and/or English, 3-6 words). Returns page titles, URLs and excerpts.",
+        "Search the web for the nutrition values of ONE food that the user's list has no item for (look it up with search_my_foods first). Give the food's Hebrew name, an objective (what to find, e.g. 'nutrition per 100g of Tnuva cottage 5%') and 1-3 short queries (Hebrew and/or English, 3-6 words). Returns page titles, URLs and excerpts; for a food that is in the user's list it returns the list item instead.",
       inputSchema: {
         type: "object",
-        properties: { objective: { type: "string" }, queries: { type: "array", items: { type: "string" } } },
-        required: ["objective", "queries"],
+        properties: {
+          food: { type: "string", description: "the food's name in Hebrew, as you'd search the user's list (e.g. מלפפון)" },
+          objective: { type: "string" },
+          queries: { type: "array", items: { type: "string" } },
+        },
+        required: ["food", "objective", "queries"],
       },
-      execute: async ({ objective, queries }, ctx) => {
+      execute: async ({ food, objective, queries }, ctx) => {
         const qs = (Array.isArray(queries) ? queries : [queries]).map(String).filter(Boolean).slice(0, 3);
+        const name = String(food || "").trim() || qs[0] || String(objective || "");
+        // the user's list comes first: a food that's in it is never searched online
+        const own = sameFoods(foods, name);
+        if (own.length) {
+          looked.add(foodKey(name));
+          onStep?.(`נמצא ברשימה שלך: ${own[0].name}`);
+          const note = own.some((f) => f.kind === "recipe")
+            ? `The user's list has "${name}" as a saved dish. If it is the dish the user described (same components), use it (source "library"); otherwise compose this serving from its components, each looked up with search_my_foods first. Don't search it online.`
+            : `"${name}" is in the user's list. Don't search it online: use this item (source "library"), scaled to the amount eaten.`;
+          return { inUserList: true, note, items: asItems(own.slice(0, 3)) };
+        }
+        if (!looked.has(foodKey(name))) {
+          looked.add(foodKey(name));
+          const hits = searchFoods(foods, name);
+          if (hits.length) return { notSearchedYet: true, note: `You didn't look "${name}" up in the user's list first. These are its closest items: if one of them is the food the user means, use it (source "library"). Only if none fits, call web_search again for it.`, items: asItems(hits) };
+        }
         onStep?.(`מחפש ברשת: ${qs[0] || objective}`);
-        if (!librarySearched) throw new Error("search the user's own list with search_my_foods first; use web_search only for foods it has no fitting item for");
         const input = { objective: String(objective || qs[0]), search_queries: qs.length ? qs : [String(objective)], session_id: sessionId };
         let res, err;
         for (let attempt = 0; attempt < 2; attempt++) {
@@ -365,11 +405,19 @@ ${text}
       fiber: round1(num(l.fiber)),
     }))
     .filter((l) => l.name);
+  // never save a second copy of a food that's already in the list (or twice in one log)
+  const fullKey = (f) => foodKey(`${f.name} ${f.brand || ""}`);
+  const listed = new Set(foods.map(fullKey));
+  for (let i = 0; i < library.length; i++) {
+    const l = library[i];
+    if (l.action !== "add") continue;
+    if (listed.has(fullKey(l))) library.splice(i--, 1);
+    else listed.add(fullKey(l));
+  }
   // every food whose values came from the web is saved to the user's list (unless it's already there)
-  const listed = new Set([...foods.map((f) => norm(f.name)), ...library.filter((l) => l.action === "add").map((l) => norm(l.name))]);
   const keep = (it, kind) => {
-    if (listed.has(norm(it.name))) return;
-    listed.add(norm(it.name));
+    if (listed.has(foodKey(it.name))) return;
+    listed.add(foodKey(it.name));
     const base = { action: "add", id: null, kind, name: it.name, brand: "" };
     const p = it.per100g;
     if (p) { // the values found online, per 100 g
