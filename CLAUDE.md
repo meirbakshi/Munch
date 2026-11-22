@@ -8,7 +8,7 @@ The owner's personal Hebrew calorie tracker for their iPhone 17 Pro. Reply to th
 - **The owner's data** lives in that artifact's database, private area `data/users/me` (read and write it with the ArtifactData tool):
   - `core`: settings history, weights, portions, prefs, insights;
   - `e-YYYY-MM`: entries and exercise;
-  - `f-N`: the food list, in chunks.
+  - `f-N`: the food list, in chunks. Each item has one serving (`servingAmount`, `servingUnit`, `servingGrams`) with its nutrition, plus optional `aliases` (other names it's found by), `portions` (other sizes: `[{unit, grams}]`) and, for recipes, `components` (`[{name, amount, unit, grams}]`).
 - Never change the data format without migrating it, and never delete the owner's data.
 
 ## Working on the app
@@ -31,7 +31,8 @@ The owner's personal Hebrew calorie tracker for their iPhone 17 Pro. Reply to th
   - "נוסף לרשימה": shown with "מהרשת" when that item was added to the list.
   - "מחושב מרכיבים": a dish built from components; saved as a recipe.
   - "ערך מקובל": rare.
-- Web results and composed dishes are saved to the food list automatically. The list holds about 1,100 foods, including Israeli basics and brands; the owner is vegetarian.
+- Before calling Claude, the app looks the message up in the list (`prefetchFoods`) and sends the matches with the request, so foods in the list need no lookup round. `web_search` answers a food that's in the list with its list item instead of searching.
+- Web results and composed dishes are saved to the food list automatically (by the app, from the logged items; Claude's own "library" output is only for values the owner gave, their recipes, corrections, and new aliases or sizes). The list holds about 1,100 foods, including Israeli basics and brands; the owner is vegetarian.
 - Insights refresh in the background after every weigh-in, and on "רענון".
 - The weekly loss pace is capped at the daily calorie minimum, with an explanation shown to the owner.
 - The free tier of the Parallel Search connector has a rate limit. When it's reached, online searches fail.

@@ -17,26 +17,42 @@ export const norm = (s) =>
 const tokens = (s) => norm(s).split(" ").filter(Boolean);
 // strip a leading Hebrew prefix letter (ו, ה, ב, ל, מ, ש, כ) for a looser match
 const stem = (t) => (t.length > 3 && "והבלמשכ".includes(t[0]) ? t.slice(1) : t);
-// singular and plural alike (after norm, ם is מ): עגבניות / עגבניה → עגבני, מלפפונים → מלפפונ
-const root = (t) => t.replace(/(ימ|ות|ה)$/, (m) => (t.length - m.length >= 3 ? "" : m));
+// plural to singular (after norm, ם is מ): עגבניות → עגבניה, מלפפונים → מלפפונ, בצלים → בצל.
+// A final ה is kept: בייגלה isn't בייגל.
+const root = (t) => (t.length >= 5 && t.endsWith("ות") ? t.slice(0, -2) + "ה" : t.length >= 5 && t.endsWith("ימ") ? t.slice(0, -2) : t);
 
-/** The name that identifies a food, ignoring spelling, plural, word order and a parenthetical. */
-const foodKey = (s) => tokens(String(s || "").replace(/\([^)]*\)/g, " ")).map(root).sort().join(" ");
+/** The name that identifies a food, ignoring spelling, plural, word order and a short note in parentheses
+ *  ("ביצה (L)", "פיצה (משולש)"); a list of ingredients in parentheses stays part of the name. */
+const dropNote = (s) => String(s || "").replace(/\(([^)]*)\)/g, (m, inner) => (inner.includes(",") || inner.trim().split(/\s+/).length > 2 ? ` ${inner} ` : " "));
+export const foodKey = (s) => tokens(dropNote(s)).map(root).sort().join(" ");
+/** Every name a list item goes by: its name, with its brand, and its variants (aliases). */
+const namesOf = (f) => [f.name, ...(f.brand ? [`${f.name} ${f.brand}`] : []), ...(Array.isArray(f.aliases) ? f.aliases : [])].filter(Boolean);
 // a bare category comes in many versions, so the list's item isn't assumed to be it (a "פיצה" isn't the list's "פיצה (משולש)")
 const BROAD = new Set(["סלט", "פיצה", "כריך", "סנדוויץ", "טוסט", "פסטה", "מרק", "עוגה", "שקשוקה", "חביתה", "אומלט", "שייק", "סמותי", "סמוזי", "באול", "ראפ", "טורטיה", "קערה"].map((w) => foodKey(w)));
 /** List items that are the same food as `name` (e.g. "מלפפונים" → the item "מלפפון"). */
+// each item's normalized names, worked out once (the list has ~1,200 items and every lookup scans it)
+const cache = new WeakMap();
+const indexed = (f) => {
+  let x = cache.get(f);
+  if (!x || x.src !== f.name + "|" + f.brand + "|" + (f.aliases || []).join("|")) {
+    const text = norm(`${f.name} ${f.brand || ""} ${(f.aliases || []).join(" ")}`);
+    x = { src: f.name + "|" + f.brand + "|" + (f.aliases || []).join("|"), text, words: text.split(" "), keys: new Set(namesOf(f).map(foodKey)), name: norm(f.name), len: tokens(f.name).length };
+    cache.set(f, x);
+  }
+  return x;
+};
 export const sameFoods = (foods, name) => {
   const k = foodKey(name);
-  return k && !BROAD.has(k) ? foods.filter((f) => foodKey(f.name) === k || (f.brand && foodKey(`${f.name} ${f.brand}`) === k)) : [];
+  return k && !BROAD.has(k) ? foods.filter((f) => indexed(f).keys.has(k)) : [];
 };
 
 export function searchFoods(foods, query, limit = 8) {
   const q = tokens(query);
   if (!q.length) return [];
+  const qn = norm(query), qk = foodKey(query);
   const scored = [];
   for (const f of foods) {
-    const name = norm(`${f.name} ${f.brand || ""}`);
-    const ft = name.split(" ");
+    const { text: name, words: ft, keys, name: own, len } = indexed(f);
     let score = 0;
     for (const t of q) {
       if (ft.includes(t)) score += 3;
@@ -44,21 +60,62 @@ export function searchFoods(foods, query, limit = 8) {
       else if (ft.some((x) => root(stem(x)) === root(stem(t)))) score += 2.2;
       else if (name.includes(t) || name.includes(stem(t))) score += 1.5;
     }
-    if (norm(f.name) === norm(query) || foodKey(f.name) === foodKey(query)) score += 4;
-    if (score > 0) scored.push([score / Math.max(1, q.length) - ft.length * 0.02, f]);
+    if (own === qn || keys.has(qk)) score += 4;
+    // length counts the item's own name only, so variants don't push it down
+    if (score > 0) scored.push([score / Math.max(1, q.length) - len * 0.02, f]);
   }
   return scored.sort((a, b) => b[0] - a[0]).slice(0, limit).map((x) => x[1]);
+}
+
+// words that never name a food on their own: amounts, units, meals, verbs, connectors
+const SKIP = new Set(("אכלתי שתיתי היום אתמול בבוקר בצהריים בערב בלילה ארוחת ארוחה בוקר צהריים ערב נשנוש נשנושים עם בלי של על גם עוד קצת הרבה מעט חצי רבע שליש אחד אחת שני שתי שתיים שלוש שלושה ארבע ארבעה חמש חמישה " +
+  "גרם גר ג קג מל מ ליטר כף כפות כפית כפיות כוס כוסות ספל קערה קערית צלחת מנה מנות יחידה יחידות פרוסה פרוסות חתיכה חתיכות משולש משולשים קופסה גביע בקבוק פחית שקית חופן קטן קטנה גדול גדולה בינוני בינונית " +
+  "או וגם שהיה שהיו היה היו לי אני את זה זו מה כמו בערך בתוך לתוך ועוד וקצת " +
+  "דקה דקות שעה שעות קמ צעדים הליכה הליכת ריצה ריצת אימון שחייה אופניים כושר יוגה פילאטיס").split(" ").map(norm));
+/**
+ * Looks the message up in the user's list before Claude sees it, so most foods need no lookup round:
+ * every phrase of 1-3 words is matched, exact matches first, then the closest items.
+ * Returns {items, phrases}: the list items, and the phrases (by foodKey) that count as looked up.
+ */
+export function prefetchFoods(foods, text, max = 45) {
+  const words = tokens(text).filter((w) => !/^[\d.%]+$/.test(w));
+  const grams = [];
+  for (let n = 3; n >= 1; n--)
+    for (let i = 0; i + n <= words.length; i++) {
+      const g = words.slice(i, i + n);
+      if (SKIP.has(g[0]) || SKIP.has(g[n - 1]) || g.every((w) => SKIP.has(w) || w.length < 2)) continue;
+      grams.push(g.join(" "));
+      // "ומלפפונים", "והגזר", "בשמן": also without the joined prefix letters
+      const bare = g[0].replace(/^ו?[הב]?/, "");
+      if (bare !== g[0] && bare.length >= 3 && !SKIP.has(bare)) grams.push([bare, ...g.slice(1)].join(" "));
+    }
+  const items = new Map(), phrases = new Set();
+  const take = (f) => { if (items.size < max) items.set(f.id, f); };
+  for (const g of new Set(grams)) {
+    const exact = sameFoods(foods, g);
+    if (exact.length) { phrases.add(foodKey(g)); exact.slice(0, 3).forEach(take); }
+  }
+  // the closest items for every phrase (a dish may be saved under a longer or different name)
+  for (const g of new Set(grams)) {
+    if (items.size >= max) break;
+    searchFoods(foods, g, g.includes(" ") ? 2 : 3).forEach(take);
+    phrases.add(foodKey(g));
+  }
+  return { items: [...items.values()], phrases };
 }
 
 /* ---------- the prompt ---------- */
 
 const INSTRUCTIONS = `You are the logging engine of a personal calorie tracker used in Israel. The user writes in Hebrew, freely, about what they ate on a given day and/or exercise they did. They may also ask to change or delete items already logged that day. Turn the message into changes to that day's log. A message can mix food and exercise.
 
-How to work:
+How to work (fast: every tool round costs the user time):
+- The items of the user's list that match the words of the message are given below the instructions ("Already looked up"). They count as searched: don't call search_my_foods again for a food they cover. Call it only for foods and components they don't cover.
+- Use as few rounds as you can. In each round make ALL the calls you can already make, together: all search_my_foods calls for uncovered foods at once; all web_search calls for whole dishes and foods missing from the list at once; then, only for dishes not found online, all their missing components at once. If everything is covered by the list, answer right away with no tool call.
+
 1. Split the message into individual foods and drinks with the amount eaten. When no amount is given, assume one typical ISRAELI serving and say so in sourceNote. Use Israeli sizes, not American ones. Typical references: medium cucumber ≈ 100 g, medium tomato ≈ 120 g, medium apple ≈ 150 g, banana ≈ 120 g (peeled), egg (L) ≈ 55 g without shell, slice of bread ≈ 30 g, pita ≈ 90 g, laffa ≈ 120 g, schnitzel ≈ 130 g, portion of hummus in a restaurant ≈ 200 g, tablespoon of oil ≈ 13 g, tablespoon of raw tahini ≈ 15 g, cup = 240 ml, tablespoon = 15 ml, teaspoon = 5 ml, "קופסה" of cottage/white cheese = 250 g, Israeli yogurt cup ≈ 150–200 g (check the product). The user's own portion definitions (listed below the instructions) ALWAYS override these defaults.
 2. For each food or dish pick nutrition values by this priority, and record which one you used in "source":
    a. "user": the user wrote the nutrition values in the message. Use exactly what they wrote and fill in only what's missing.
-   b. "library": the user's own list of foods and recipes (about 1,100 items: Israeli basics, vegetables, fruit, dairy, brands, their recipes). Call search_my_foods for every food and every component (retry with a shorter or alternative Hebrew name, e.g. singular, if nothing matches) and WAIT for its answer before any web_search: never call web_search for a food in the same step as its search_my_foods call.
+   b. "library": the user's own list of foods and recipes (about 1,100 items: Israeli basics, vegetables, fruit, dairy, brands, their recipes). Every food and every component must be checked in the list first: in the "Already looked up" items, else with search_my_foods (retry with a shorter or alternative Hebrew name, e.g. singular, if nothing matches). WAIT for the list's answer before any web_search for that food: never call both for one food in the same round. List items may have "aliases" (other names for the same item) and "otherSizes" (more serving sizes with their weight, e.g. כף = 20 g): use them to match the user's words and to scale.
       - A basic food or single ingredient (a vegetable, fruit, egg, bread, cheese, oil, rice, a spice...) that has a list item of the same name IS that item: always use it, at the amount eaten (scale from its serving), even inside a dish the user described. The rules below are about DISHES and products only.
       For dishes and products, be SELECTIVE: use a library item only when the user clearly means THAT specific item.
       - Use it when the text names the same specific dish or product (e.g. "מג׳דרה" → their "מג׳דרה, כוס אחת"; "פשטידת זיתים" → their olive quiche; a brand + product that matches).
@@ -72,13 +129,18 @@ How to work:
       - Give each component an amount: what the user described first; otherwise a typical amount for this dish. When the user gave the dish's total weight or size, the components must add up to it (40 g of spinach in butter, garlic and cream cheese ≈ 30 g spinach, 5 g butter, 3 g cream cheese, 2 g garlic).
       - Find each component's values by the same order: search_my_foods first (most basic ingredients are in the list: use them, source "library"), web_search only for the components the list has no item for, then "reference" as the last resort.
       - The dish's values are the sum of its components. Log the dish as ONE item, and list the components in its "components" array: [{"name","amount","unit","grams","calories","carbs","protein","fat","fiber","source","per100g"}] with source library, web or reference, each for the amount used; for a "web" component also give "per100g": {"calories","carbs","protein","fat","fiber"} as found online.
+      - A saved recipe from the list that has "ingredients" is the described dish only when those ingredients match what the user described.
       - sourceNote: the breakdown, short, e.g. "30 ג׳ תרד (מהרשת) · 5 ג׳ חמאה (מהרשימה) · 3 ג׳ גבינת שמנת (מהרשת) · 2 ג׳ שום".
    e. "reference": a LAST resort, only when web_search returned nothing similar enough to the food after you tried, or web search is unavailable. Use standard values (Israeli Ministry of Health / USDA) and say in sourceNote that nothing was found online.
 3. All values are for the full amount eaten: calories (kcal), carbs, protein, fat, fiber (grams). "carbs" excludes dietary fiber when the source separates them, as Israeli labels do. Round calories to whole numbers and grams to one decimal.
 4. Changes to what was already logged: the day's current log is given with refs (e1, e2, ...). If the user says something was wrong, eaten in a different amount, or should be removed, put it in "update" (with the ref and the full corrected item) or "delete" (the ref). Only touch logged items the user referred to. If the user's message only adds foods, leave update and delete empty.
 5. Library changes ("library"): keep the user's list of foods and recipes useful.
-   - "add" a new item when the user gives nutrition values for a named food, describes a recipe of their own (ingredients and amounts → compute per-serving values), and for EVERY food whose values you took from web_search (source "web"), with the same name you used in "add", so it is found in the list next time. Also add every "composed" dish as a recipe ("kind":"recipe", per the amount eaten), and each of its components whose values came from the web (per 100 g when the weight is known).
-   - "update" an existing library item (use its id from search_my_foods) when the user corrects its values or says its serving/recipe changed.
+   - Foods found online (source "web") and "composed" dishes are saved to the list AUTOMATICALLY from the items you log: never put them in "library". For a "web" food in "add", give its "per100g" values as found online (like a web component), so it's saved per 100 g.
+   - "add" a new item only when the user gives nutrition values for a named food, or describes a recipe of their own (ingredients and amounts → compute per-serving values).
+   - "update" an existing library item (its id) when the user corrects its values or says its serving/recipe changed. An update holds only the fields that change.
+   - Teach the list, with an "update" that holds only "id" and the new "aliases" and/or "otherSizes":
+     · "aliases": the user called a list item by another name and you used it (e.g. "גמבה" for the item "פלפל אדום"): ["גמבה"].
+     · "otherSizes": you learned the weight of a serving size of a list item that isn't listed (e.g. the user said their spoon of ריבת חלב is 20 g): [{"unit":"כף","grams":20}].
    - Do not add items whose values came from "reference", and do not duplicate an item that already exists.
    Library items are per serving: servingAmount + servingUnit (e.g. 100 גרם, 1 יחידה), plus servingGrams when known.
 6. Names, units, sourceNote and notes in Hebrew. sourceNote: short, where the numbers came from and any assumption (e.g. "לפי אתר תנובה: 95 קק״ל ל-100 גרם", "הנחתי מלפפון בינוני, 100 גרם"). notes: one short sentence on anything the user should check, or "".
@@ -94,7 +156,7 @@ Reply with ONLY one JSON object, no other text (empty arrays where nothing appli
 {"add":[{"name":"","amount":0,"unit":"","grams":null,"meal":"breakfast","calories":0,"carbs":0,"protein":0,"fat":0,"fiber":0,"source":"web","sourceNote":""}],
  "update":[{"ref":"e1","name":"","amount":0,"unit":"","grams":null,"meal":"lunch","calories":0,"carbs":0,"protein":0,"fat":0,"fiber":0,"source":"user","sourceNote":""}],
  "delete":["e2"],
- "library":[{"action":"add","id":null,"kind":"food","name":"","brand":"","servingAmount":100,"servingUnit":"גרם","servingGrams":100,"calories":0,"carbs":0,"protein":0,"fat":0,"fiber":0}],
+ "library":[{"action":"add","id":null,"kind":"food","name":"","brand":"","servingAmount":100,"servingUnit":"גרם","servingGrams":100,"calories":0,"carbs":0,"protein":0,"fat":0,"fiber":0},{"action":"update","id":"<id>","aliases":["גמבה"]}],
  "exercise":[{"name":"הליכה מהירה","minutes":45,"calories":0,"source":"estimate","note":""}],
  "exerciseUpdate":[{"ref":"x1","name":"","minutes":30,"calories":0,"source":"user","note":""}],
  "exerciseDelete":["x2"],
@@ -197,7 +259,12 @@ export async function analyzeLog({ text, date, dayEntries, dayExercises = [], we
   if (!sample) throw new Error("הניתוח עובד רק כשהאפליקציה פתוחה ב-claude.ai. אפשר להוסיף פריטים ידנית.");
   let mcp = await getMcp();
   let searchProblem = "";
-  const looked = new Set(); // the foods already looked up in the user's list (by foodKey)
+  const t0 = Date.now();
+  const timing = []; // [seconds since start, what happened], for measuring
+  const mark = (what) => timing.push([Math.round((Date.now() - t0) / 100) / 10, what]);
+  // the message is looked up in the list up front, so most foods need no lookup round
+  const pre = prefetchFoods(foods, `${text} ${adjustment}`);
+  const looked = new Set(pre.phrases); // the foods already looked up in the user's list (by foodKey)
   let webSearches = 0;
   if (mcp) {
     const st = await searchPermission();
@@ -225,6 +292,7 @@ export async function analyzeLog({ text, date, dayEntries, dayExercises = [], we
       execute: ({ query }) => {
         const q = String(query || "");
         looked.add(foodKey(q));
+        mark("list: " + q);
         onStep?.(`מחפש ברשימה שלך: ${q}`);
         const hits = searchFoods(foods, q);
         if (!hits.length) return `No items match "${q}".`;
@@ -241,6 +309,9 @@ export async function analyzeLog({ text, date, dayEntries, dayExercises = [], we
       type: f.kind === "recipe" ? "recipe" : "food",
       serving: `${f.servingAmount} ${f.servingUnit}${f.servingGrams ? ` (${f.servingGrams} g)` : ""}`,
       perServing: { calories: f.calories, carbs: f.carbs, protein: f.protein, fat: f.fat, fiber: f.fiber },
+      aliases: f.aliases?.length ? f.aliases : undefined,
+      otherSizes: f.portions?.length ? f.portions.map((x) => `${x.unit} = ${x.grams} g`) : undefined,
+      ingredients: f.components?.length ? f.components.map((c) => `${c.name}${c.grams ? ` ${c.grams} g` : ""}`).join(", ") : undefined,
     }));
   }
   if (mcp) {
@@ -276,6 +347,7 @@ export async function analyzeLog({ text, date, dayEntries, dayExercises = [], we
           if (hits.length) return { notSearchedYet: true, note: `You didn't look "${name}" up in the user's list first. These are its closest items: if one of them is the food the user means, use it (source "library"). Only if none fits, call web_search again for it.`, items: asItems(hits) };
         }
         onStep?.(`מחפש ברשת: ${qs[0] || objective}`);
+        mark("web: " + name);
         const input = { objective: String(objective || qs[0]), search_queries: qs.length ? qs : [String(objective)], session_id: sessionId };
         let res, err;
         for (let attempt = 0; attempt < 2; attempt++) {
@@ -288,6 +360,7 @@ export async function analyzeLog({ text, date, dayEntries, dayExercises = [], we
           }
         }
         if (!err) webSearches++;
+        mark((err ? "web failed: " : "web done: ") + name);
         if (err) {
           if (err.code === "cancelled") throw err;
           searchProblem = searchErrorText(err.code);
@@ -340,6 +413,9 @@ The user's current weight: ${weightKg ? weightKg + " kg" : "unknown"}.
 The user's own portion definitions (always use these):
 ${portions.length ? portions.map((p) => `- ${p.term} = ${p.value}`).join("\n") : "(none yet)"}
 
+Already looked up: the items of the user's list that match the words of the message (one per line; per serving):
+${pre.items.length ? asItems(pre.items).map((x) => JSON.stringify(x)).join("\n") : "(no matches in the list)"}
+
 The day's current food log:
 ${current}
 
@@ -355,7 +431,9 @@ ${text}
   let raw;
   try {
     try {
+      mark("start");
       raw = await sample.json(prompt, { tools, signal });
+      mark("answer");
       // standard values are the last resort: if some were used without any online search, ask once to search first
       const guessed = mcp && !searchProblem && !webSearches && raw && typeof raw === "object"
         ? [...(raw.add || []), ...(raw.update || []), ...[...(raw.add || []), ...(raw.update || [])].flatMap((it) => (Array.isArray(it?.components) ? it.components : []))]
@@ -366,8 +444,9 @@ ${text}
         raw = await sample.json([
           { role: "user", content: prompt },
           { role: "assistant", content: JSON.stringify(raw) },
-          { role: "user", content: `You used standard ("reference") values for: ${guessed.join(", ")}, without searching online. Search online with web_search for each of them first (they were not in my list), use what you find ("web"), and keep "reference" only for a food the search found nothing similar for. Reply with the COMPLETE JSON again.` },
+          { role: "user", content: `You used standard ("reference") values for: ${guessed.join(", ")}, without searching online. Search online with web_search for each of them first, all in one round (they were not in my list), use what you find ("web"), and keep "reference" only for a food the search found nothing similar for. Reply with the COMPLETE JSON again.` },
         ], { tools, signal });
+        mark("second answer");
       }
     } catch (e) {
       // a view that can't run page tools: try once more without them, from general knowledge
@@ -383,54 +462,108 @@ ${text}
   if (!raw || typeof raw !== "object") throw new Error(ERRORS.invalid_json);
 
   const components = new Map(); // logged item → its components
-  const add = (raw.add || []).map((r) => { const it = cleanItem(r, defaultMeal); components.set(it, cleanComponents(r.components)); return it; }).filter((it) => it.name);
+  const per100 = new Map(); // logged web item → its values per 100 g, as found online
+  const parse = (r, it) => {
+    components.set(it, cleanComponents(r.components));
+    if (r.per100g && typeof r.per100g === "object" && num(r.per100g.calories) > 0) per100.set(it, r.per100g);
+    return it;
+  };
+  const add = (raw.add || []).map((r) => parse(r, cleanItem(r, defaultMeal))).filter((it) => it.name);
   const update = (raw.update || [])
-    .map((r) => { const it = { id: refs.get(String(r.ref)), ...cleanItem(r, defaultMeal) }; components.set(it, cleanComponents(r.components)); return it; })
+    .map((r) => parse(r, { id: refs.get(String(r.ref)), ...cleanItem(r, defaultMeal) }))
     .filter((it) => it.id && it.name);
   const del = (raw.delete || []).map((r) => refs.get(String(r))).filter(Boolean);
-  const library = (raw.library || [])
-    .map((l) => ({
-      action: l.action === "update" && foods.some((f) => f.id === l.id) ? "update" : "add",
-      id: l.action === "update" ? l.id : null,
-      ...(l.kind === "recipe" ? { kind: "recipe" } : {}),
-      name: str(l.name),
-      brand: str(l.brand),
-      servingAmount: num(l.servingAmount) || 1,
-      servingUnit: str(l.servingUnit) || "מנה",
-      servingGrams: num(l.servingGrams) || null,
-      calories: Math.round(num(l.calories)),
-      carbs: round1(num(l.carbs)),
-      protein: round1(num(l.protein)),
-      fat: round1(num(l.fat)),
-      fiber: round1(num(l.fiber)),
-    }))
-    .filter((l) => l.name);
-  // never save a second copy of a food that's already in the list (or twice in one log)
+
+  /* changes to the user's list */
+  const byId = new Map(foods.map((f) => [f.id, f]));
+  const cleanSizes = (list) => (Array.isArray(list) ? list : [])
+    .map((x) => ({ unit: str(x?.unit), grams: round1(num(x?.grams)) })).filter((x) => x.unit && x.grams > 0);
+  // a variant or size is added to what the item already has (never replacing it)
+  const withAliases = (f, more) => {
+    const have = new Set([f.name, ...(f.aliases || [])].map(foodKey));
+    const out = [...(f.aliases || [])];
+    for (const a of more.map(str).filter(Boolean)) if (!have.has(foodKey(a))) { have.add(foodKey(a)); out.push(a); }
+    return out;
+  };
+  const withSizes = (f, more) => {
+    const out = [...(f.portions || [])];
+    for (const x of more) {
+      const i = out.findIndex((y) => norm(y.unit) === norm(x.unit));
+      if (i >= 0) out[i] = x; else if (norm(x.unit) !== norm(f.servingUnit) || f.servingAmount !== 1) out.push(x);
+    }
+    return out;
+  };
+  const NUMS = ["calories", "carbs", "protein", "fat", "fiber"];
+  const library = [];
+  const updates = new Map(); // id → the update for it (one per item)
+  const updateOf = (f) => {
+    if (!updates.has(f.id)) { const u = { action: "update", id: f.id }; updates.set(f.id, u); library.push(u); }
+    return updates.get(f.id);
+  };
+  const latest = (f) => ({ ...f, ...(updates.get(f.id) || {}) });
   const fullKey = (f) => foodKey(`${f.name} ${f.brand || ""}`);
-  const listed = new Set(foods.map(fullKey));
-  for (let i = 0; i < library.length; i++) {
-    const l = library[i];
-    if (l.action !== "add") continue;
-    if (listed.has(fullKey(l))) library.splice(i--, 1);
-    else listed.add(fullKey(l));
+  const listed = new Map(); // key → list item, for every name an item goes by
+  for (const f of foods) for (const n of namesOf(f)) if (!listed.has(foodKey(n))) listed.set(foodKey(n), f);
+  const inList = (name) => listed.get(foodKey(name));
+  for (const l of raw.library || []) {
+    if (!l || typeof l !== "object") continue;
+    const old = l.action === "update" ? byId.get(l.id) : null;
+    if (old) { // only the fields given change
+      const u = updateOf(old);
+      if (str(l.name)) u.name = str(l.name);
+      if (l.brand !== undefined) u.brand = str(l.brand);
+      if (l.kind === "recipe" || l.kind === "food") u.kind = l.kind;
+      if (num(l.servingAmount) > 0) u.servingAmount = num(l.servingAmount);
+      if (str(l.servingUnit)) u.servingUnit = str(l.servingUnit);
+      if (l.servingGrams !== undefined) u.servingGrams = num(l.servingGrams) || null;
+      for (const k of NUMS) if (l[k] !== undefined && l[k] !== null && l[k] !== "") u[k] = k === "calories" ? Math.round(num(l[k])) : round1(num(l[k]));
+      if (Array.isArray(l.aliases)) { const a = withAliases(latest(old), l.aliases); if (a.length !== (old.aliases || []).length || u.aliases) u.aliases = a; }
+      const sizes = cleanSizes(l.otherSizes || l.portions);
+      if (sizes.length) u.portions = withSizes(latest(old), sizes);
+      if (Object.keys(u).length === 2) { library.splice(library.indexOf(u), 1); updates.delete(old.id); }
+      continue;
+    }
+    const item = {
+      action: "add", id: null, ...(l.kind === "recipe" ? { kind: "recipe" } : {}),
+      name: str(l.name), brand: str(l.brand),
+      servingAmount: num(l.servingAmount) || 1, servingUnit: str(l.servingUnit) || "מנה", servingGrams: num(l.servingGrams) || null,
+      calories: Math.round(num(l.calories)), carbs: round1(num(l.carbs)), protein: round1(num(l.protein)), fat: round1(num(l.fat)), fiber: round1(num(l.fiber)),
+      ...(Array.isArray(l.aliases) && l.aliases.length ? { aliases: l.aliases.map(str).filter(Boolean) } : {}),
+      ...(cleanSizes(l.otherSizes || l.portions).length ? { portions: cleanSizes(l.otherSizes || l.portions) } : {}),
+    };
+    if (!item.name) continue;
+    // never save a second copy of a food that's already in the list (or twice in one log)
+    if (listed.has(fullKey(item))) continue;
+    listed.set(fullKey(item), item);
+    library.push(item);
   }
   // every food whose values came from the web is saved to the user's list (unless it's already there)
   const keep = (it, kind) => {
-    if (listed.has(foodKey(it.name))) return;
-    listed.add(foodKey(it.name));
+    const have = inList(it.name);
+    if (have) {
+      // the same food in another size: remember that size's weight on the saved item
+      if (have.id && kind === "food" && it.grams > 0 && it.amount === 1 && !/^(גרם|גר|ג|מ״ל|מל)$/.test(norm(it.unit)) && norm(it.unit) !== norm(have.servingUnit) && !(latest(have).portions || []).some((x) => norm(x.unit) === norm(it.unit)))
+        updateOf(have).portions = withSizes(latest(have), [{ unit: it.unit, grams: round1(it.grams) }]);
+      return;
+    }
+    listed.set(foodKey(it.name), { name: it.name });
     const base = { action: "add", id: null, kind, name: it.name, brand: "" };
-    const p = it.per100g;
+    const p = it.per100g || per100.get(it);
     if (p) { // the values found online, per 100 g
       library.push({ ...base, servingAmount: 100, servingUnit: "גרם", servingGrams: 100,
-        calories: Math.round(num(p.calories)), carbs: round1(num(p.carbs)), protein: round1(num(p.protein)), fat: round1(num(p.fat)), fiber: round1(num(p.fiber)) });
+        calories: Math.round(num(p.calories)), carbs: round1(num(p.carbs)), protein: round1(num(p.protein)), fat: round1(num(p.fat)), fiber: round1(num(p.fiber)),
+        // the size eaten, when it isn't grams, is kept as another size of the food
+        ...(it.grams > 0 && it.amount === 1 && !/^(גרם|גר|ג|מ״ל|מל)$/.test(norm(it.unit)) ? { portions: [{ unit: it.unit, grams: round1(it.grams) }] } : {}) });
       return;
     }
     // per 100 g when the weight is known and large enough to scale accurately, otherwise per the amount eaten
     const k = kind === "food" && it.grams >= 20 ? 100 / it.grams : 1;
+    const parts = kind === "recipe" ? (components.get(it) || []).map((c) => ({ name: c.name, amount: c.amount, unit: c.unit, grams: c.grams })) : [];
     library.push({
       ...base,
       ...(k !== 1 ? { servingAmount: 100, servingUnit: "גרם", servingGrams: 100 } : { servingAmount: it.amount || 1, servingUnit: it.unit || "מנה", servingGrams: it.grams || null }),
       calories: Math.round(it.calories * k), carbs: round1(it.carbs * k), protein: round1(it.protein * k), fat: round1(it.fat * k), fiber: round1(it.fiber * k),
+      ...(parts.length ? { components: parts } : {}),
     });
   };
   for (const it of [...add, ...update]) {
@@ -451,5 +584,7 @@ ${text}
   const exerciseUpdate = (raw.exerciseUpdate || []).map((x) => ({ id: xrefs.get(String(x.ref)), ...cleanEx(x) })).filter((x) => x.id && x.name);
   const exerciseDelete = (raw.exerciseDelete || []).map((r) => xrefs.get(String(r))).filter(Boolean);
   const newPortions = (raw.portions || []).map((p) => ({ term: str(p.term), value: str(p.value) })).filter((p) => p.term && p.value);
-  return { add, update, delete: del, library, exercise, exerciseUpdate, exerciseDelete, portions: newPortions, notes: [str(raw.notes), searchProblem].filter(Boolean).join(" ") };
+  mark("done");
+  console.info("[munch] log timing (s):", timing.map(([t, w]) => `${t} ${w}`).join(" · "));
+  return { add, update, delete: del, library, exercise, exerciseUpdate, exerciseDelete, portions: newPortions, notes: [str(raw.notes), searchProblem].filter(Boolean).join(" "), seconds: Math.round((Date.now() - t0) / 1000) };
 }

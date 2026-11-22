@@ -389,6 +389,22 @@ function Composer({ date, entries, exercises, weightKg, foods, portions, aiReady
 
 /* ---------- the review pop-up ---------- */
 
+/** What a change to a saved food did, in a line: a new name variant or size, else its serving and calories. */
+function foodChange(c) {
+  const b = c.before, a = c.after;
+  if (c.action === "update" && b) {
+    const names = (a.aliases || []).filter((x) => !(b.aliases || []).includes(x));
+    const sizes = (a.portions || []).filter((x) => !(b.portions || []).some((y) => y.unit === x.unit && y.grams === x.grams));
+    const parts = [];
+    if (names.length) parts.push(`${names.length > 1 ? "שמות נוספים" : "שם נוסף"}: ${names.join(", ")}`);
+    if (sizes.length) parts.push(`${sizes.length > 1 ? "גדלים נוספים" : "גודל נוסף"}: ${sizes.map((x) => `${x.unit} = ${fmt(x.grams)} ג׳`).join(", ")}`);
+    if (a.calories !== b.calories || a.servingAmount !== b.servingAmount || a.servingUnit !== b.servingUnit)
+      parts.push(`${a.servingAmount} ${a.servingUnit}: ${fmt(a.calories)} קק״ל (היה ${fmt(b.calories)})`);
+    if (parts.length) return parts.join(" · ");
+  }
+  return `${a.servingAmount} ${a.servingUnit}: ${fmt(a.calories)} קק״ל`;
+}
+
 /** Where an item's values came from, and whether it was just saved to the user's list. */
 const SOURCE_BADGES = { library: "מהרשימה שלך", web: "מהרשת", composed: "מחושב מרכיבים", user: "כתבת", reference: "ערך מקובל", manual: "ידני" };
 function SourceBadges({ item, saved }) {
@@ -538,7 +554,7 @@ function ReviewSheet({ result, setResult, entries, exercises, onSave, onRevise, 
                 ) : (
                   <>
                     <div style={{ fontSize: 15 }}>{c.undone ? <span className="strike">{c.after.name}</span> : c.after.name}<span className="badge web">{c.action === "add" ? "נוסף לרשימה" : "עודכן ברשימה"}</span></div>
-                    <div className="sublabel num">{c.after.servingAmount} {c.after.servingUnit}: {fmt(c.after.calories)} קק״ל{c.action === "update" && c.before ? ` (היה ${fmt(c.before.calories)})` : ""}</div>
+                    <div className="sublabel num">{foodChange(c)}</div>
                   </>
                 )}
               </div>
@@ -547,6 +563,7 @@ function ReviewSheet({ result, setResult, entries, exercises, onSave, onRevise, 
           ))}
         </div>
         {result.notes && <p className="footnote" style={{ margin: "0 4px" }}>{result.notes}</p>}
+        {result.seconds > 0 && <p className="footnote num" style={{ margin: "0 4px" }}>הניתוח נמשך {fmt(result.seconds)} שניות.</p>}
 
         {!savedOnly && (
           <div className="group composer" style={{ padding: "10px 12px 10px 14px" }}>
