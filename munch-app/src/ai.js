@@ -17,11 +17,14 @@ export const norm = (s) =>
 const tokens = (s) => norm(s).split(" ").filter(Boolean);
 // strip a leading Hebrew prefix letter (ו, ה, ב, ל, מ, ש, כ) for a looser match
 const stem = (t) => (t.length > 3 && "והבלמשכ".includes(t[0]) ? t.slice(1) : t);
-// singular and plural alike (after norm, ם is מ): עגבניות / עגבניה → עגבני, מלפפונים → מלפפונ
-const root = (t) => t.replace(/(ימ|ות|ה)$/, (m) => (t.length - m.length >= 3 ? "" : m));
+// plural to singular (after norm, ם is מ): עגבניות → עגבניה, מלפפונים → מלפפונ, בצלים → בצל.
+// A final ה is kept: בייגלה isn't בייגל.
+const root = (t) => (t.length >= 5 && t.endsWith("ות") ? t.slice(0, -2) + "ה" : t.length >= 5 && t.endsWith("ימ") ? t.slice(0, -2) : t);
 
-/** The name that identifies a food, ignoring spelling, plural, word order and a parenthetical. */
-export const foodKey = (s) => tokens(String(s || "").replace(/\([^)]*\)/g, " ")).map(root).sort().join(" ");
+/** The name that identifies a food, ignoring spelling, plural, word order and a short note in parentheses
+ *  ("ביצה (L)", "פיצה (משולש)"); a list of ingredients in parentheses stays part of the name. */
+const dropNote = (s) => String(s || "").replace(/\(([^)]*)\)/g, (m, inner) => (inner.includes(",") || inner.trim().split(/\s+/).length > 2 ? ` ${inner} ` : " "));
+export const foodKey = (s) => tokens(dropNote(s)).map(root).sort().join(" ");
 /** Every name a list item goes by: its name, with its brand, and its variants (aliases). */
 const namesOf = (f) => [f.name, ...(f.brand ? [`${f.name} ${f.brand}`] : []), ...(Array.isArray(f.aliases) ? f.aliases : [])].filter(Boolean);
 // a bare category comes in many versions, so the list's item isn't assumed to be it (a "פיצה" isn't the list's "פיצה (משולש)")
