@@ -131,6 +131,7 @@ How to work (fast: every tool round costs the user time):
       - The dish's values are the sum of its components. Log the dish as ONE item, and list the components in its "components" array: [{"name","amount","unit","grams","calories","carbs","protein","fat","fiber","source","per100g"}] with source library, web or reference, each for the amount used; for a "web" component also give "per100g": {"calories","carbs","protein","fat","fiber"} as found online.
       - A saved recipe from the list that has "ingredients" is the described dish only when those ingredients match what the user described.
       - sourceNote: the breakdown, short, e.g. "30 ג׳ תרד (מהרשת) · 5 ג׳ חמאה (מהרשימה) · 3 ג׳ גבינת שמנת (מהרשת) · 2 ג׳ שום".
+   b2. "label": the values were read from a photo of the product's nutrition label that the user attached (see "Photos" below).
    e. "reference": a LAST resort, only when web_search returned nothing similar enough to the food after you tried, or web search is unavailable. Use standard values (Israeli Ministry of Health / USDA) and say in sourceNote that nothing was found online.
 3. All values are for the full amount eaten: calories (kcal), carbs, protein, fat, fiber (grams). "carbs" excludes dietary fiber when the source separates them, as Israeli labels do. Round calories to whole numbers and grams to one decimal.
 4. Changes to what was already logged: the day's current log is given with refs (e1, e2, ...). If the user says something was wrong, eaten in a different amount, or should be removed, put it in "update" (with the ref and the full corrected item) or "delete" (the ref). Only touch logged items the user referred to. If the user's message only adds foods, leave update and delete empty.
@@ -162,7 +163,22 @@ Reply with ONLY one JSON object, no other text (empty arrays where nothing appli
  "exerciseDelete":["x2"],
  "portions":[{"term":"כוס","value":"200 מ״ל"}],
  "notes":""}
-meal is one of breakfast, lunch, dinner, snack. source is one of user, library, web, composed, reference.`;
+meal is one of breakfast, lunch, dinner, snack. source is one of user, library, label, web, composed, reference.`;
+
+/** What to do with attached photos (added to the prompt only when there are any). */
+const PHOTOS = (n) => `
+Photos: the user attached ${n} photo${n > 1 ? "s" : ""} (shown with this message). They show the nutrition facts (״סימון תזונתי״ / ״ערכים תזונתיים״) of food products, often with the package's front (name, brand). Treat what they show exactly as if the user had typed those values into the message:
+- Find every product in the photos. Several photos can show one product (front and back): combine them. For each, read:
+  · its name in Hebrew as on the package (a short, natural name, e.g. "יוגורט גו 0%", not a slogan) and its brand (e.g. "תנובה", "שטראוס");
+  · the values per 100 g (or per 100 ml): energy in kcal (אנרגיה, קלוריות; not kJ), carbohydrates (פחמימות; "מתוכן סוכרים" is part of them, never added), protein (חלבונים), total fat (שומנים; not just saturated), dietary fiber (סיבים תזונתיים; 0 when not listed). If only per-serving values are shown, use them with that serving's weight;
+  · the package's own sizes when shown: the serving (מנה = 30 ג׳), the unit (יחידה / גביע / חטיף / בקבוק = its weight), the whole package.
+- Read the numbers carefully: decimal commas (3,5 = 3.5), the right column (per 100 g, not "per serving" or "% of daily value"). Never guess a value that isn't legible: if a photo can't be read, or isn't a nutrition label, say so in notes and leave that product out.
+- Save every product to the user's list, in "library", with "fromPhoto": true:
+  · look each product up with search_my_foods first (by its name, without the brand), all in one round. If the list has the SAME product (same name and brand), "update" that item with the label's values when they differ, and add the package sizes as "otherSizes";
+  · otherwise "add" it: kind "food", name, brand, servingAmount 100, servingUnit "גרם" (or "מ״ל" for a drink), servingGrams 100, the values per 100, and "otherSizes" for the package's sizes (e.g. [{"unit":"גביע","grams":150}]).
+- Log a product (in "add", source "label", with "per100g" as read) ONLY when the message says it was eaten or drunk (e.g. "אכלתי גביע", "חצי מהחטיף", "100 גרם מזה"). Scale from the label to the amount eaten; "one" of it is the package's unit or serving. sourceNote: "לפי התווית: X קק״ל ל-100 ג׳". When the message is empty or only asks to save, log nothing: just save the products to the list.
+- Foods in the message that aren't in the photos are handled as usual.
+`;
 
 /* ---------- validating the answer ---------- */
 
@@ -171,7 +187,7 @@ const num = (v) => {
   return isFinite(n) && n >= 0 ? n : 0;
 };
 const str = (v) => (typeof v === "string" ? v.trim() : "");
-const SOURCES = ["user", "library", "web", "composed", "reference"];
+const SOURCES = ["user", "library", "label", "web", "composed", "reference"];
 const cleanItem = (it, fallbackMeal) => ({
   name: str(it.name),
   amount: num(it.amount) || 1,
@@ -204,6 +220,8 @@ const ERRORS = {
   session_expired: "צריך להתחבר מחדש ל-claude.ai.",
   refused: "הבקשה לא עובדה. נסו לנסח אחרת.",
   prompt_too_large: "הטקסט ארוך מדי. נסו לפצל אותו לכמה רישומים.",
+  images_unavailable: "אי אפשר לשלוח תמונות בתצוגה הזו.",
+  image_rejected: "אחת התמונות לא נקראה. נסו תמונה אחרת (JPEG או PNG).",
   invalid_json: "התשובה לא התקבלה בפורמט הנכון. נסו שוב.",
   empty_completion: "לא התקבלה תשובה. נסו לנסח אחרת.",
   tools_unavailable: "החיפוש ברשימה וברשת לא זמין בתצוגה הזו.",
@@ -254,7 +272,7 @@ export const aiAvailable = async () => Boolean(await getSample());
  * where update/delete refer to real entry ids.
  * onStep(text) reports progress ("searching the web for ...").
  */
-export async function analyzeLog({ text, date, dayEntries, dayExercises = [], weightKg, foods, portions = [], defaultMeal, draft = null, adjustment = "", onStep, signal }) {
+export async function analyzeLog({ text, images = [], date, dayEntries, dayExercises = [], weightKg, foods, portions = [], defaultMeal, draft = null, adjustment = "", onStep, signal }) {
   const sample = await getSample();
   if (!sample) throw new Error("הניתוח עובד רק כשהאפליקציה פתוחה ב-claude.ai. אפשר להוסיף פריטים ידנית.");
   let mcp = await getMcp();
@@ -422,17 +440,19 @@ ${current}
 The day's current exercise log:
 ${currentEx}
 
+${images.length ? PHOTOS(images.length) : ""}
 The user's message:
 <message>
-${text}
+${text || (images.length ? "(no text: only the photos)" : "")}
 </message>${revision}`;
 
-  onStep?.(draft ? "מעדכן את הרשימה…" : "קורא את מה שכתבת…");
+  onStep?.(draft ? "מעדכן את הרשימה…" : images.length ? (images.length > 1 ? "קורא את התמונות…" : "קורא את התמונה…") : "קורא את מה שכתבת…");
+  const opts = images.length ? { images } : {};
   let raw;
   try {
     try {
       mark("start");
-      raw = await sample.json(prompt, { tools, signal });
+      raw = await sample.json(prompt, { tools, signal, ...opts });
       mark("answer");
       // standard values are the last resort: if some were used without any online search, ask once to search first
       const guessed = mcp && !searchProblem && !webSearches && raw && typeof raw === "object"
@@ -445,14 +465,14 @@ ${text}
           { role: "user", content: prompt },
           { role: "assistant", content: JSON.stringify(raw) },
           { role: "user", content: `You used standard ("reference") values for: ${guessed.join(", ")}, without searching online. Search online with web_search for each of them first, all in one round (they were not in my list), use what you find ("web"), and keep "reference" only for a food the search found nothing similar for. Reply with the COMPLETE JSON again.` },
-        ], { tools, signal });
+        ], { tools, signal, ...opts });
         mark("second answer");
       }
     } catch (e) {
       // a view that can't run page tools: try once more without them, from general knowledge
       if (e?.code !== "tools_unavailable") throw e;
       onStep?.("מנתח בלי חיפוש…");
-      raw = await sample.json(prompt + "\n\nNote: the search tools are unavailable right now. Use reference values, and say in notes that the user's list and the web weren't checked.", { signal });
+      raw = await sample.json(prompt + "\n\nNote: the search tools are unavailable right now. Use reference values, and say in notes that the user's list and the web weren't checked.", { signal, ...opts });
     }
   } catch (e) {
     if (e && e.code === "cancelled") throw Object.assign(new Error("בוטל"), { cancelled: true });
@@ -524,7 +544,7 @@ ${text}
       continue;
     }
     const item = {
-      action: "add", id: null, ...(l.kind === "recipe" ? { kind: "recipe" } : {}),
+      action: "add", id: null, ...(l.kind === "recipe" ? { kind: "recipe" } : {}), ...(l.fromPhoto && images.length ? { source: "label" } : {}),
       name: str(l.name), brand: str(l.brand),
       servingAmount: num(l.servingAmount) || 1, servingUnit: str(l.servingUnit) || "מנה", servingGrams: num(l.servingGrams) || null,
       calories: Math.round(num(l.calories)), carbs: round1(num(l.carbs)), protein: round1(num(l.protein)), fat: round1(num(l.fat)), fiber: round1(num(l.fiber)),
@@ -535,6 +555,7 @@ ${text}
     // never save a second copy of a food that's already in the list (or twice in one log)
     if (listed.has(fullKey(item))) continue;
     listed.set(fullKey(item), item);
+    if (!listed.has(foodKey(item.name))) listed.set(foodKey(item.name), item);
     library.push(item);
   }
   // every food whose values came from the web is saved to the user's list (unless it's already there)
@@ -566,8 +587,10 @@ ${text}
       ...(parts.length ? { components: parts } : {}),
     });
   };
+  // label products are saved from "library" (with their brand and sizes); a logged one is kept only if that was missed
+  const photoSaved = (raw.library || []).some((l) => l?.fromPhoto);
   for (const it of [...add, ...update]) {
-    if (it.source === "web") keep(it, "food");
+    if (it.source === "web" || (it.source === "label" && !photoSaved)) keep(it, "food");
     if (it.source === "composed") {
       for (const c of components.get(it) || []) if (c.source === "web") keep(c, "food");
       keep(it, "recipe");

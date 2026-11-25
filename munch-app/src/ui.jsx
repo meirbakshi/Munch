@@ -15,6 +15,8 @@ export const Icon = {
   chev: (p) => <S size={14} w={2.6} {...p}><path d="M15 5l-7 7 7 7" /></S>,
   calendar: (p) => <S size={17} {...p}><rect x="3.5" y="5" width="17" height="15" rx="3" /><path d="M3.5 10h17M8 3v4M16 3v4" /></S>,
   send: (p) => <S size={18} w={2.4} {...p}><path d="M12 19V5M5 12l7-7 7 7" /></S>,
+  camera: (p) => <S size={22} {...p}><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.6l1.4-2h5l1.4 2h1.6A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5z" /><circle cx="12" cy="12.5" r="3.5" /></S>,
+  close: (p) => <S size={12} w={2.6} {...p}><path d="M6 6l12 12M18 6L6 18" /></S>,
   plus: (p) => <S size={18} w={2.4} {...p}><path d="M12 5v14M5 12h14" /></S>,
   remove: (p) => <S size={22} w={2.2} {...p}><circle cx="12" cy="12" r="9" fill="currentColor" stroke="none" /><path d="M8 12h8" stroke="var(--cell)" /></S>,
   search: (p) => <S size={16} w={2.2} {...p}><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4.2-4.2" /></S>,
