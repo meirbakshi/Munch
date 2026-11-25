@@ -463,7 +463,7 @@ function FoodLibrary() {
     const all = [...data.foods].sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
     return nq ? all.filter((f) => norm(`${f.name} ${f.brand || ""} ${(f.aliases || []).join(" ")}`).includes(nq)) : all;
   }, [data.foods, q]);
-  const SRC = { loseit: "Lose It", log: "מהרישום", manual: "ידני", web: "מהרשת" };
+  const SRC = { loseit: "Lose It", log: "מהרישום", label: "מתווית", manual: "ידני", web: "מהרשת" };
   return (
     <>
       <div className="section-head"><h2 className="section-title">המזונות והמתכונים שלי</h2><span className="sublabel num">{fmt(data.foods.length)}</span></div>

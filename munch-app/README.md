@@ -12,7 +12,7 @@ npm install
 npm run build   # writes out/calorie-app.html
 ```
 
-`out/calorie-app.html` is what gets published to the artifact, with the same URL so the link stays the same. It has no `<html>`, `<head>` or `<body>` tags; claude.ai adds them. The artifact declares these capabilities: `db`, `user`, `sample`, `downloads`, and `mcp` with the Parallel Search connector's `web_search` tool.
+`out/calorie-app.html` is what gets published to the artifact, with the same URL so the link stays the same. It has no `<html>`, `<head>` or `<body>` tags; claude.ai adds them. The artifact declares these capabilities: `db`, `user`, `sample` (with `images: true`, for photos of nutrition labels), `downloads`, and `mcp` with the Parallel Search connector's `web_search` tool.
 
 ## How it works
 

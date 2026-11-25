@@ -1,10 +1,11 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { analyzeLog, norm } from "../ai.js";
 import {
   DAY_NAMES, ENERGY_SOURCES, MEALS, MEAL_ORDER, addDays, computeDays, currentSettings, daysBetween, dayLabel, dow, fmt, fmtDate,
   latestWeight, macroShares, mealByTime, startDate, sumItems, todayISO,
 } from "../calc.js";
 import { mutate, newId, useStore } from "../store.js";
+import { getSample } from "../claude.js";
 import { ConfirmSheet, EntryEditor, Icon, Ring, Sheet, toast } from "../ui.jsx";
 import { WeightSheet } from "./Settings.jsx";
 
@@ -217,6 +218,27 @@ function BalanceNote({ day, s }) {
 const emptyDraft = () => ({ add: [], update: [], delete: [], exercise: [], exerciseUpdate: [], exerciseDelete: [], notes: "" });
 const draftSize = (r) => r.add.length + r.update.length + r.delete.length + r.exercise.length + r.exerciseUpdate.length + r.exerciseDelete.length;
 
+/** A picked photo as a JPEG Claude can read: upright, at most 2000 px on its long side (iPhone HEIC photos included). */
+async function toJpeg(file) {
+  const MAX = 2000;
+  let img, close = () => {};
+  try {
+    img = await createImageBitmap(file, { imageOrientation: "from-image" });
+    close = () => img.close?.();
+  } catch {
+    const url = URL.createObjectURL(file);
+    img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error("bad image")); i.src = url; });
+    close = () => URL.revokeObjectURL(url);
+  }
+  const k = Math.min(1, MAX / Math.max(img.width, img.height));
+  const c = document.createElement("canvas");
+  c.width = Math.round(img.width * k);
+  c.height = Math.round(img.height * k);
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  close();
+  return await new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error("bad image"))), "image/jpeg", 0.88));
+}
+
 function Composer({ date, entries, exercises, weightKg, foods, portions, aiReady, onManual }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -224,12 +246,20 @@ function Composer({ date, entries, exercises, weightKg, foods, portions, aiReady
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null); // the draft under review, plus savedChanges (library/portions, already saved)
   const ctl = useRef(null);
+  const [photos, setPhotos] = useState([]); // [{blob, url}]
+  const [maxPhotos, setMaxPhotos] = useState(0); // 0: this view can't send photos
+  const fileRef = useRef(null);
+  useEffect(() => {
+    let live = true;
+    getSample().then((s) => s?.limits?.()).then((l) => live && setMaxPhotos(l?.images?.maxCount || 0)).catch(() => {});
+    return () => { live = false; };
+  }, [aiReady]);
   const today = todayISO();
   const defaultMeal = date === today ? mealByTime() : "snack";
 
   async function run({ draft, adjustment }) {
     ctl.current = new AbortController();
-    const r = await analyzeLog({ text, date, dayEntries: entries, dayExercises: exercises, weightKg, foods, portions, defaultMeal, draft, adjustment, onStep: setStep, signal: ctl.current.signal });
+    const r = await analyzeLog({ text, images: photos.map((p) => p.blob), date, dayEntries: entries, dayExercises: exercises, weightKg, foods, portions, defaultMeal, draft, adjustment, onStep: setStep, signal: ctl.current.signal });
     // Saved foods and portion sizes are updated right away; each change can be undone from the review.
     const saved = [...(await applyLibrary(r.library)), ...(await applyPortions(r.portions))];
     return { r, saved };
@@ -242,7 +272,13 @@ function Composer({ date, entries, exercises, weightKg, foods, portions, aiReady
     try {
       const { r, saved } = await run({});
       if (!draftSize(r)) {
-        setError(r.notes || "לא זיהיתי מזונות, פעילות או שינויים בטקסט. נסו לנסח אחרת.");
+        if (photos.length && saved.length) { // photos only: their products were saved to the list
+          setResult({ ...emptyDraft(), notes: r.notes, seconds: r.seconds, savedChanges: saved, savedOnly: true });
+          clearPhotos();
+          setText("");
+          return;
+        }
+        setError(r.notes || (photos.length ? "לא הצלחתי לקרוא ערכים תזונתיים בתמונות. נסו צילום קרוב וחד של הטבלה." : "לא זיהיתי מזונות, פעילות או שינויים בטקסט. נסו לנסח אחרת."));
         if (saved.length) setResult({ ...emptyDraft(), savedChanges: saved, savedOnly: true });
       } else setResult({ ...r, savedChanges: saved });
     } catch (e) {
@@ -340,6 +376,27 @@ function Composer({ date, entries, exercises, weightKg, foods, portions, aiReady
     toast(n === 1 ? "היומן עודכן" : `היומן עודכן (${n} שינויים)`);
     setResult(null);
     setText("");
+    clearPhotos();
+  }
+
+  async function addPhotos(files) {
+    const room = maxPhotos - photos.length;
+    const list = [...files].slice(0, Math.max(0, room));
+    if (files.length > room) toast(`אפשר לצרף עד ${maxPhotos} תמונות`);
+    const added = [];
+    for (const f of list) {
+      try {
+        const blob = await toJpeg(f);
+        added.push({ blob, url: URL.createObjectURL(blob) });
+      } catch { toast("אחת התמונות לא נפתחה"); }
+    }
+    setPhotos((p) => [...p, ...added]);
+  }
+  function removePhoto(i) {
+    setPhotos((p) => { URL.revokeObjectURL(p[i].url); return p.filter((_, j) => j !== i); });
+  }
+  function clearPhotos() {
+    setPhotos((p) => { p.forEach((x) => URL.revokeObjectURL(x.url)); return []; });
   }
 
   return (
@@ -350,10 +407,21 @@ function Composer({ date, entries, exercises, weightKg, foods, portions, aiReady
           id="log-text"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="למשל: חזה עוף 150 גרם ואורז, והליכה של 40 דקות"
+          placeholder={photos.length ? "מה אכלת מזה? למשל: ״אכלתי גביע אחד״. אפשר גם להשאיר ריק, והמוצר רק יישמר ברשימה." : "למשל: חזה עוף 150 גרם ואורז, והליכה של 40 דקות"}
           disabled={busy}
           aria-label="מה אכלת או מה עשית"
         />
+        {photos.length > 0 && (
+          <div className="thumbs">
+            {photos.map((p, i) => (
+              <div key={p.url} className="thumb">
+                <img src={p.url} alt={`תמונה ${i + 1}`} />
+                {!busy && <button className="thumb-x" aria-label={`הסרת תמונה ${i + 1}`} onClick={() => removePhoto(i)}><span><Icon.close /></span></button>}
+              </div>
+            ))}
+          </div>
+        )}
+        <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => { addPhotos(e.target.files || []); e.target.value = ""; }} />
         {busy ? (
           <div className="actions">
             <div className="progress"><span className="spinner" />{step || "מנתח…"}</div>
@@ -361,8 +429,13 @@ function Composer({ date, entries, exercises, weightKg, foods, portions, aiReady
           </div>
         ) : (
           <div className="actions">
-            <button className="link" onClick={onManual}>הוספה ידנית</button>
-            <button className="btn small filled" disabled={!text.trim() || !aiReady} onClick={analyze}><Icon.send />ניתוח</button>
+            <div className="row-start">
+              <button className="link" onClick={onManual}>הוספה ידנית</button>
+              {maxPhotos > 0 && aiReady && (
+                <button className="icon-btn" aria-label="צירוף תמונה של ערכים תזונתיים" disabled={photos.length >= maxPhotos} onClick={() => fileRef.current?.click()}><Icon.camera /></button>
+              )}
+            </div>
+            <button className="btn small filled" disabled={(!text.trim() && !photos.length) || !aiReady} onClick={analyze}><Icon.send />ניתוח</button>
           </div>
         )}
         {!aiReady && !busy && <div className="sublabel">הניתוח האוטומטי פועל רק כשהאפליקציה פתוחה ב-claude.ai. אפשר להוסיף פריטים ידנית.</div>}
@@ -406,13 +479,13 @@ function foodChange(c) {
 }
 
 /** Where an item's values came from, and whether it was just saved to the user's list. */
-const SOURCE_BADGES = { library: "מהרשימה שלך", web: "מהרשת", composed: "מחושב מרכיבים", user: "כתבת", reference: "ערך מקובל", manual: "ידני" };
+const SOURCE_BADGES = { library: "מהרשימה שלך", label: "מהתווית", web: "מהרשת", composed: "מחושב מרכיבים", user: "כתבת", reference: "ערך מקובל", manual: "ידני" };
 function SourceBadges({ item, saved }) {
   const label = SOURCE_BADGES[item.source];
   return (
     <>
-      {label && <span className={`badge ${item.source === "web" || item.source === "library" ? "web" : ""}`}>{label}</span>}
-      {(item.source === "web" || item.source === "composed") && saved.has(norm(item.name)) && <span className="badge add">נוסף לרשימה</span>}
+      {label && <span className={`badge ${["web", "library", "label"].includes(item.source) ? "web" : ""}`}>{label}</span>}
+      {(item.source === "web" || item.source === "composed" || item.source === "label") && saved.has(norm(item.name)) && <span className="badge add">נוסף לרשימה</span>}
     </>
   );
 }

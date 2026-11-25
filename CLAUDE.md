@@ -15,7 +15,7 @@ The owner's personal Hebrew calorie tracker for their iPhone 17 Pro. Reply to th
 1. Before any visual change, read `.claude/skills/munch-design/SKILL.md` (Apple HIG for this app).
 2. Build: `cd munch-app && npm install && npm run build`. This writes `munch-app/out/calorie-app.html`.
 3. Test with Playwright against the built file, with a mock `window.claude` (`db`, `user`, `sample`, `mcp`, `permissions`) seeded with realistic data. Check light and dark mode at 402×874.
-4. Publish: Artifact publish with `file_path` = `munch-app/out/calorie-app.html` and `url` = the artifact URL above. Omit `capabilities` so the stored ones carry over: db, user, sample, downloads, mcp (Parallel Search: `web_search`).
+4. Publish: Artifact publish with `file_path` = `munch-app/out/calorie-app.html` and `url` = the artifact URL above. Omit `capabilities` so the stored ones carry over: db, user, sample (with `images: true`), downloads, mcp (Parallel Search: `web_search`). If they ever must be restated, restate all of them: `{db:{}, user:{}, sample:{images:true}, downloads:true, mcp:{servers:[{server:"Parallel Search", tools:["web_search"]}]}}`.
 5. Git: work on a branch, open a PR to `main`, and squash-merge it. The owner asked for every change to go through a PR.
 
 ## How the app behaves (owner's decisions)
@@ -30,7 +30,9 @@ The owner's personal Hebrew calorie tracker for their iPhone 17 Pro. Reply to th
   - "מהרשת": found online during this log.
   - "נוסף לרשימה": shown with "מהרשת" when that item was added to the list.
   - "מחושב מרכיבים": a dish built from components; saved as a recipe.
+  - "מהתווית": read from an attached photo of the nutrition label.
   - "ערך מקובל": rare.
+- Photos: the camera button in the composer attaches up to the allowed number of photos of nutrition labels (re-encoded to JPEG, at most 2000 px). Claude reads each product (name, brand, values per 100 g, package sizes) and saves it to the list (source `label`, "מתווית"; an existing product is updated). It's logged, labeled "מהתווית", only when the text says it was eaten; photos with no text just save the products.
 - Before calling Claude, the app looks the message up in the list (`prefetchFoods`) and sends the matches with the request, so foods in the list need no lookup round. `web_search` answers a food that's in the list with its list item instead of searching.
 - Web results and composed dishes are saved to the food list automatically (by the app, from the logged items; Claude's own "library" output is only for values the owner gave, their recipes, corrections, and new aliases or sizes). The list holds about 1,100 foods, including Israeli basics and brands; the owner is vegetarian.
 - Insights refresh in the background after every weigh-in, and on "רענון".
